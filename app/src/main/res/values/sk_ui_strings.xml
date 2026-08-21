@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Strings introduced by the UI/UX modernization. Translatable: Persian
-  translations live in values-fa/sk_ui_strings.xml.
+  Strings introduced by the UI/UX work. Translatable: Persian translations
+  live in values-fa/sk_ui_strings.xml.
 -->
 <resources>
 
@@ -19,9 +19,37 @@
 
     <string name="sk_emblem_content_description">Connect or disconnect</string>
 
+    <!--
+      Spoken labels for the emblem. The button does one of two opposite things
+      depending on tunnel state, so a single static description is wrong for
+      one of them.
+    -->
+    <string name="sk_emblem_action_connect">Connect</string>
+    <string name="sk_emblem_action_disconnect">Disconnect</string>
+
     <!-- Statistics tab -->
     <string name="sk_stats_session">Session</string>
     <string name="sk_graph_slow">Per minute</string>
     <string name="sk_graph_fast">Per second</string>
+
+    <!-- Live session card on the Home tab -->
+    <string name="sk_session_duration">Duration</string>
+    <string name="sk_session_sent">Sent</string>
+    <string name="sk_session_received">Received</string>
+
+    <!-- Clipboard -->
+    <string name="sk_copied">Copied to clipboard</string>
+    <string name="sk_tap_to_copy">Tap a line to copy it</string>
+    <string name="sk_long_press_to_copy">Long-press a line to copy it</string>
+
+    <!-- Clearing the log -->
+    <string name="sk_clear_logs_title">Clear logs?</string>
+    <string name="sk_clear_logs_message">Every log entry will be removed. This cannot be undone.</string>
+    <string name="sk_clear_logs_confirm">Clear</string>
+    <string name="sk_logs_cleared">Logs cleared</string>
+
+    <!-- Logs tab empty state -->
+    <string name="sk_logs_empty_title">Nothing logged yet</string>
+    <string name="sk_logs_empty_body">Connection messages show up here as soon as the tunnel starts.</string>
 
 </resources>

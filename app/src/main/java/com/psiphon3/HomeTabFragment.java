@@ -54,8 +54,11 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.psiphon3.psiphonlibrary.DataTransferStats;
 import com.psiphon3.psiphonlibrary.EmbeddedValues;
 import com.psiphon3.psiphonlibrary.LocalizedActivities;
+import com.psiphon3.psiphonlibrary.TunnelServiceInteractor;
+import com.psiphon3.psiphonlibrary.Utils;
 
 import net.grandcentrix.tray.AppPreferences;
 
@@ -65,6 +68,7 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -77,10 +81,17 @@ public class HomeTabFragment extends Fragment {
     private static final int EMBLEM_ALPHA_DIM = 77;
     private static final int EMBLEM_ALPHA_FULL = 255;
 
+    // Opacity of the radial glow per state. The glow used to be drawn at full
+    // strength always, which read as "active" underneath a dimmed emblem.
+    private static final float GLOW_ALPHA_OFF = 0.16f;
+    private static final float GLOW_ALPHA_CONNECTING = 0.6f;
+    private static final float GLOW_ALPHA_ON = 1f;
+
     private MainActivityViewModel viewModel;
     private ViewFlipper sponsorViewFlipper;
     private ScrollView statusLayout;
     private ImageButton statusViewImage;
+    private View statusGlow;
     private View mainView;
     private SponsorHomePage sponsorHomePage;
     private boolean isWebViewLoaded = false;
@@ -92,12 +103,31 @@ public class HomeTabFragment extends Fragment {
     private TextView connectionStatusLabel;
     private TextView connectionStatusHint;
 
+    // Live session card
+    private View sessionCard;
+    private TextView sessionDurationText;
+    private TextView sessionSentText;
+    private TextView sessionReceivedText;
+
     // LAN proxy info views
     private LinearLayout lanProxyInfoSection;
     private TextView lanProxyHttpText;
     private TextView lanProxySocksText;
     private TextView lanProxyUsernameText;
     private TextView lanProxyPasswordText;
+
+    // Raw (unlocalised) values behind the LAN proxy rows. The rows render a
+    // translated label around the value, so copying the rendered text would put
+    // "HTTP proxy: 10.0.0.4:8080" on the clipboard instead of an address that
+    // can be pasted into another app's proxy field.
+    @Nullable
+    private String lanProxyHttpValue;
+    @Nullable
+    private String lanProxySocksValue;
+    @Nullable
+    private String lanProxyUsernameValue;
+    @Nullable
+    private String lanProxyPasswordValue;
 
     @Nullable
     @Override
@@ -118,6 +148,7 @@ public class HomeTabFragment extends Fragment {
         sponsorViewFlipper.setOutAnimation(AnimationUtils.loadAnimation(requireContext(), android.R.anim.slide_out_right));
 
         statusLayout = view.findViewById(R.id.statusLayout);
+        statusGlow = view.findViewById(R.id.statusGlow);
         statusViewImage = view.findViewById(R.id.statusViewImage);
         // Use Lion & Sun emblem for all states; connection state shown via alpha/animation
         statusViewImage.setImageResource(R.drawable.lion_and_sun);
@@ -134,9 +165,11 @@ public class HomeTabFragment extends Fragment {
 
         connectionStatusLabel = view.findViewById(R.id.connectionStatusLabel);
         connectionStatusHint = view.findViewById(R.id.connectionStatusHint);
-        setStatusText(R.string.sk_status_not_connected,
-                R.string.sk_status_hint_not_connected,
-                R.color.sk_status_off);
+
+        sessionCard = view.findViewById(R.id.homeSessionCard);
+        sessionDurationText = view.findViewById(R.id.homeSessionDuration);
+        sessionSentText = view.findViewById(R.id.homeSessionSent);
+        sessionReceivedText = view.findViewById(R.id.homeSessionReceived);
 
         lastLogEntryTv = view.findViewById(R.id.lastlogline);
 
@@ -147,6 +180,25 @@ public class HomeTabFragment extends Fragment {
         lanProxyUsernameText = view.findViewById(R.id.lanProxyUsernameText);
         lanProxyPasswordText = view.findViewById(R.id.lanProxyPasswordText);
 
+        // Sharing a proxy means telling somebody else an address and a password.
+        // Tapping the row is a lot better than reading digits off a screen.
+        lanProxyHttpText.setOnClickListener(v ->
+                SkUi.copyToClipboard(v, R.string.app_name, lanProxyHttpValue));
+        lanProxySocksText.setOnClickListener(v ->
+                SkUi.copyToClipboard(v, R.string.app_name, lanProxySocksValue));
+        lanProxyUsernameText.setOnClickListener(v ->
+                SkUi.copyToClipboard(v, R.string.app_name, lanProxyUsernameValue));
+        lanProxyPasswordText.setOnClickListener(v ->
+                SkUi.copyToClipboard(v, R.string.app_name, lanProxyPasswordValue));
+
+        // Start in the disconnected presentation until the first tunnel state arrives.
+        setStatusText(R.string.sk_status_not_connected,
+                R.string.sk_status_hint_not_connected,
+                R.color.sk_status_off);
+        setGlowAlpha(GLOW_ALPHA_OFF);
+        setEmblemAction(R.string.sk_emblem_action_connect);
+        hideSessionCard();
+
         viewModel = new ViewModelProvider(requireActivity(),
                 new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication()))
                 .get(MainActivityViewModel.class);
@@ -156,21 +208,27 @@ public class HomeTabFragment extends Fragment {
     public void onPause() {
         super.onPause();
         compositeDisposable.clear();
+        // Nothing on this tab is visible any more. The animator used to keep
+        // running in the background until the fragment was destroyed.
+        stopPulseAnimation();
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        final TunnelServiceInteractor tunnelServiceInteractor =
+                ((LocalizedActivities.AppCompatActivity) requireActivity())
+                        .getTunnelServiceInteractor();
+
         // Observe last log entry to display.
         compositeDisposable.add(viewModel.lastLogEntryFlowable()
                 .observeOn(AndroidSchedulers.mainThread())
-                .doOnNext(lastLogEntryTv::setText)
+                .doOnNext(this::setLastLogEntry)
                 .subscribe());
 
         // Observes tunnel state changes and updates the status UI,
         // also loads sponsor home pages in the embedded web view if needed.
-        compositeDisposable.add(((LocalizedActivities.AppCompatActivity) requireActivity())
-                .getTunnelServiceInteractor().tunnelStateFlowable()
+        compositeDisposable.add(tunnelServiceInteractor.tunnelStateFlowable()
                 .observeOn(AndroidSchedulers.mainThread())
                 // Update the connection status UI
                 .doOnNext(this::updateStatusUI)
@@ -183,9 +241,11 @@ public class HomeTabFragment extends Fragment {
                         if (sponsorHomePage != null) {
                             sponsorHomePage.stop();
                         }
-                        boolean isShowingWebView = sponsorViewFlipper.getCurrentView() != statusLayout;
-                        if (isShowingWebView) {
-                            sponsorViewFlipper.showNext();
+                        if (sponsorViewFlipper != null && statusLayout != null) {
+                            boolean isShowingWebView = sponsorViewFlipper.getCurrentView() != statusLayout;
+                            if (isShowingWebView) {
+                                sponsorViewFlipper.showNext();
+                            }
                         }
                         // Also reset isWebViewLoaded
                         isWebViewLoaded = false;
@@ -201,6 +261,44 @@ public class HomeTabFragment extends Fragment {
                 })
                 .doOnNext(this::loadEmbeddedWebView)
                 .subscribe());
+
+        // Live session figures. This is the same periodic stream the Statistics
+        // tab uses, so showing duration and volume on the Home tab costs nothing
+        // extra and saves a tab switch for the two numbers people check most.
+        compositeDisposable.add(tunnelServiceInteractor.dataStatsFlowable()
+                .startWith(Boolean.FALSE)
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnNext(this::updateSessionCard)
+                .subscribe());
+    }
+
+    @Override
+    public void onDestroyView() {
+        // The animator holds a hard reference to the emblem, so it has to die
+        // with the view, not with the fragment.
+        stopPulseAnimation();
+        if (sponsorHomePage != null) {
+            sponsorHomePage.stop();
+            sponsorHomePage = null;
+        }
+        sponsorViewFlipper = null;
+        statusLayout = null;
+        statusViewImage = null;
+        statusGlow = null;
+        connectionStatusLabel = null;
+        connectionStatusHint = null;
+        sessionCard = null;
+        sessionDurationText = null;
+        sessionSentText = null;
+        sessionReceivedText = null;
+        lastLogEntryTv = null;
+        lanProxyInfoSection = null;
+        lanProxyHttpText = null;
+        lanProxySocksText = null;
+        lanProxyUsernameText = null;
+        lanProxyPasswordText = null;
+        mainView = null;
+        super.onDestroyView();
     }
 
     @Override
@@ -213,12 +311,24 @@ public class HomeTabFragment extends Fragment {
         }
     }
 
+    private void setLastLogEntry(String entry) {
+        if (lastLogEntryTv != null) {
+            lastLogEntryTv.setText(entry);
+        }
+    }
+
     private void updateStatusUI(TunnelState tunnelState) {
+        if (statusViewImage == null) {
+            // View already destroyed; a queued emission must not touch it.
+            return;
+        }
         if (tunnelState.isRunning()) {
             if (tunnelState.connectionData().isConnected()) {
                 // Connected: full brightness, no animation
                 stopPulseAnimation();
                 statusViewImage.setImageAlpha(EMBLEM_ALPHA_FULL);
+                setGlowAlpha(GLOW_ALPHA_ON);
+                setEmblemAction(R.string.sk_emblem_action_disconnect);
                 setStatusText(R.string.sk_status_connected,
                         R.string.sk_status_hint_connected,
                         R.color.sk_status_connected);
@@ -227,6 +337,8 @@ public class HomeTabFragment extends Fragment {
             } else {
                 // Connecting: pulse animation
                 startPulseAnimation();
+                setGlowAlpha(GLOW_ALPHA_CONNECTING);
+                setEmblemAction(R.string.sk_emblem_action_disconnect);
                 boolean waitingForNetwork =
                         tunnelState.connectionData().networkConnectionState() ==
                                 TunnelState.ConnectionData.NetworkConnectionState.WAITING_FOR_NETWORK;
@@ -239,16 +351,37 @@ public class HomeTabFragment extends Fragment {
                                 : R.string.sk_status_hint_connecting,
                         R.color.sk_status_connecting);
                 hideLanProxyInfo();
+                hideSessionCard();
             }
         } else {
             // Disconnected: dim, no animation
             stopPulseAnimation();
             statusViewImage.setImageAlpha(EMBLEM_ALPHA_DIM);
+            setGlowAlpha(GLOW_ALPHA_OFF);
+            setEmblemAction(R.string.sk_emblem_action_connect);
             setStatusText(R.string.sk_status_not_connected,
                     R.string.sk_status_hint_not_connected,
                     R.color.sk_status_off);
             hideLanProxyInfo();
+            hideSessionCard();
         }
+    }
+
+    private void setGlowAlpha(float alpha) {
+        if (statusGlow != null) {
+            statusGlow.setAlpha(alpha);
+        }
+    }
+
+    /**
+     * Keep the emblem's spoken label in step with what tapping it will do.
+     */
+    private void setEmblemAction(@StringRes int actionRes) {
+        Context context = getContext();
+        if (statusViewImage == null || context == null) {
+            return;
+        }
+        statusViewImage.setContentDescription(context.getString(actionRes));
     }
 
     private void setStatusText(@StringRes int labelRes, @StringRes int hintRes, @ColorRes int colorRes) {
@@ -262,6 +395,38 @@ public class HomeTabFragment extends Fragment {
         }
         if (connectionStatusHint != null) {
             connectionStatusHint.setText(hintRes);
+        }
+    }
+
+    /**
+     * Fill in the live session card, or hide it when there is no session.
+     */
+    private void updateSessionCard(boolean isConnected) {
+        if (sessionCard == null) {
+            return;
+        }
+        if (!isConnected) {
+            hideSessionCard();
+            return;
+        }
+        DataTransferStats.DataTransferStatsForUI stats =
+                DataTransferStats.getDataTransferStatsForUI();
+        sessionCard.setVisibility(View.VISIBLE);
+        if (sessionDurationText != null) {
+            sessionDurationText.setText(Utils.elapsedTimeToDisplay(stats.getElapsedTime()));
+        }
+        if (sessionSentText != null) {
+            sessionSentText.setText(Utils.byteCountToDisplaySize(stats.getTotalBytesSent(), false));
+        }
+        if (sessionReceivedText != null) {
+            sessionReceivedText.setText(
+                    Utils.byteCountToDisplaySize(stats.getTotalBytesReceived(), false));
+        }
+    }
+
+    private void hideSessionCard() {
+        if (sessionCard != null) {
+            sessionCard.setVisibility(View.GONE);
         }
     }
 
@@ -298,16 +463,20 @@ public class HomeTabFragment extends Fragment {
         lanProxyInfoSection.setVisibility(View.VISIBLE);
 
         if (httpPort > 0) {
+            lanProxyHttpValue = String.format(Locale.US, "%s:%d", lanIp, httpPort);
             lanProxyHttpText.setText(getString(R.string.lan_proxy_http_address, lanIp, httpPort));
             lanProxyHttpText.setVisibility(View.VISIBLE);
         } else {
+            lanProxyHttpValue = null;
             lanProxyHttpText.setVisibility(View.GONE);
         }
 
         if (socksPort > 0) {
+            lanProxySocksValue = String.format(Locale.US, "%s:%d", lanIp, socksPort);
             lanProxySocksText.setText(getString(R.string.lan_proxy_socks_address, lanIp, socksPort));
             lanProxySocksText.setVisibility(View.VISIBLE);
         } else {
+            lanProxySocksValue = null;
             lanProxySocksText.setVisibility(View.GONE);
         }
 
@@ -327,11 +496,15 @@ public class HomeTabFragment extends Fragment {
                 .getString(context.getString(R.string.shareProxyOnNetworkPasswordPreference), "");
 
         if (TextUtils.isEmpty(username) || TextUtils.isEmpty(password)) {
+            lanProxyUsernameValue = null;
+            lanProxyPasswordValue = null;
             lanProxyUsernameText.setVisibility(View.GONE);
             lanProxyPasswordText.setVisibility(View.GONE);
             return;
         }
 
+        lanProxyUsernameValue = username;
+        lanProxyPasswordValue = password;
         lanProxyUsernameText.setText(getString(R.string.lan_proxy_username, username));
         lanProxyPasswordText.setText(getString(R.string.lan_proxy_password, password));
         lanProxyUsernameText.setVisibility(View.VISIBLE);
@@ -490,7 +663,7 @@ public class HomeTabFragment extends Fragment {
             if (info == null) return null;
             int ipInt = info.getIpAddress();
             if (ipInt == 0) return null;
-            return String.format("%d.%d.%d.%d",
+            return String.format(Locale.US, "%d.%d.%d.%d",
                     (ipInt & 0xff), (ipInt >> 8 & 0xff),
                     (ipInt >> 16 & 0xff), (ipInt >> 24 & 0xff));
         } catch (Exception ignored) {
@@ -500,6 +673,9 @@ public class HomeTabFragment extends Fragment {
     }
 
     private void startPulseAnimation() {
+        if (statusViewImage == null) {
+            return;
+        }
         if (pulseAnimator != null && pulseAnimator.isRunning()) {
             return; // Already pulsing
         }
@@ -519,6 +695,9 @@ public class HomeTabFragment extends Fragment {
     }
 
     private void loadEmbeddedWebView(String url) {
+        if (mainView == null || sponsorViewFlipper == null) {
+            return;
+        }
         isWebViewLoaded = true;
         sponsorHomePage = new SponsorHomePage(mainView.findViewById(R.id.sponsorWebView),
                 mainView.findViewById(R.id.sponsorWebViewProgressBar));

@@ -26,6 +26,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.AnimationDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.nfc.NfcAdapter;
 import android.nfc.cardemulation.CardEmulation;
@@ -39,6 +40,7 @@ import android.text.TextUtils;
 import android.text.style.BulletSpan;
 import android.text.util.Linkify;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -102,6 +104,11 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
     private MaterialButton toggleButton;
     private ProgressBar connectionProgressBar;
     private ViewGroup connectionWaitingNetworkIndicator;
+    // The animation list behind connectionWaitingNetworkIndicator, resolved once.
+    // Null when the background is not an AnimationDrawable, which is the only
+    // reason this is a field rather than a cast at every call site.
+    @Nullable
+    private AnimationDrawable waitingNetworkAnimation;
     private MaterialButton openBrowserButton;
     private MainActivityViewModel viewModel;
     private Toast invalidProxySettingsToast;
@@ -109,6 +116,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
     private ViewPager viewPager;
     private PsiphonTabLayout tabLayout;
     private AlertDialog upstreamProxyErrorAlertDialog;
+    private AlertDialog clearLogsAlertDialog;
     private MenuItem psiphonBumpHelpItem;
     private FloatingActionButton helpConnectFab;
     // Keeps track of the Psiphon Bump help state
@@ -124,11 +132,27 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);
         getMenuInflater().inflate(R.menu.activity_main, menu);
-        // Set up version label in the action bar — hidden for cleaner UI
-        TextView versionLabel = menu.getItem(1).getActionView().findViewById(R.id.toolbar_version_label);
-        versionLabel.setVisibility(View.GONE);
+
+        // Look items up by id. The previous code used menu.getItem(1) and then
+        // dereferenced getActionView() without a null check, so it broke on any
+        // menu reordering and could NPE on platforms that do not inflate the
+        // action layout. The version label was already being hidden, so hide
+        // the whole item instead of just its inner TextView: an invisible label
+        // was still reserving space in the toolbar.
+        MenuItem versionItem = menu.findItem(R.id.menu_psiphon_version);
+        if (versionItem != null) {
+            versionItem.setVisible(false);
+            View actionView = versionItem.getActionView();
+            if (actionView != null) {
+                TextView versionLabel = actionView.findViewById(R.id.toolbar_version_label);
+                if (versionLabel != null) {
+                    versionLabel.setVisibility(View.GONE);
+                }
+            }
+        }
+
         // Psiphon Bump
-        psiphonBumpHelpItem = menu.getItem(0);
+        psiphonBumpHelpItem = menu.findItem(R.id.menu_psiphon_bump);
         // Set up "Can Help" item state in the action bar
         updatePsiphonBumpHelpMenuItem(psiphonBumpHelpState);
         return true;
@@ -212,21 +236,32 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
         toggleButton = findViewById(R.id.toggleButton);
         connectionProgressBar = findViewById(R.id.connectionProgressBar);
         connectionWaitingNetworkIndicator = findViewById(R.id.connectionWaitingNetworkIndicator);
-        ((AnimationDrawable) connectionWaitingNetworkIndicator.getBackground()).start();
+        // Resolve the animation once. It used to be start()ed here and never
+        // stopped, which kept an AnimationDrawable scheduling frames for the
+        // whole life of the activity even though the indicator it animates is
+        // INVISIBLE except while we are waiting for a network.
+        Drawable waitingNetworkBackground = connectionWaitingNetworkIndicator.getBackground();
+        if (waitingNetworkBackground instanceof AnimationDrawable) {
+            waitingNetworkAnimation = (AnimationDrawable) waitingNetworkBackground;
+        }
         openBrowserButton = findViewById(R.id.openBrowserButton);
         configureClearLogsButton();
-        toggleButton.setOnClickListener(v ->
-                compositeDisposable.add(getTunnelServiceInteractor().tunnelStateFlowable()
-                        .filter(state -> !state.isUnknown())
-                        .take(1)
-                        .doOnNext(state -> {
-                            if (state.isRunning()) {
-                                getTunnelServiceInteractor().stopTunnelService();
-                            } else {
-                                startTunnel();
-                            }
-                        })
-                        .subscribe()));
+        toggleButton.setOnClickListener(v -> {
+            // Starting or stopping a tunnel is a commit, so give it the same
+            // tactile confirmation the platform gives its own switches.
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+            compositeDisposable.add(getTunnelServiceInteractor().tunnelStateFlowable()
+                    .filter(state -> !state.isUnknown())
+                    .take(1)
+                    .doOnNext(state -> {
+                        if (state.isRunning()) {
+                            getTunnelServiceInteractor().stopTunnelService();
+                        } else {
+                            startTunnel();
+                        }
+                    })
+                    .subscribe());
+        });
         tabLayout = findViewById(R.id.main_activity_tablayout);
         tabLayout.addTab(tabLayout.newTab().setTag("home").setText(R.string.home_tab_name));
         tabLayout.addTab(tabLayout.newTab().setTag("statistics").setText(R.string.statistics_tab_name));
@@ -291,7 +326,16 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
     protected void onPause() {
         super.onPause();
         cancelInvalidProxySettingsToast();
+        dismissClearLogsAlertDialog();
         compositeDisposable.clear();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Nothing is visible any more, so nothing should be animating. onResume
+        // re-subscribes to the tunnel state and restores the correct indicator.
+        stopWaitingNetworkAnimation();
     }
 
     @Override
@@ -541,7 +585,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
             toggleButton.setText(getText(R.string.waiting));
             toggleButton.setIconResource(R.drawable.sk_ic_power);
             connectionProgressBar.setVisibility(View.INVISIBLE);
-            connectionWaitingNetworkIndicator.setVisibility(View.INVISIBLE);
+            setWaitingForNetworkIndicatorVisible(false);
         } else if (tunnelState.isRunning()) {
             toggleButton.setEnabled(true);
             toggleButton.setText(getText(R.string.stop));
@@ -549,13 +593,13 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
             if (tunnelState.connectionData().isConnected()) {
                 configureOpenBrowserButton(tunnelState);
                 connectionProgressBar.setVisibility(View.INVISIBLE);
-                connectionWaitingNetworkIndicator.setVisibility(View.INVISIBLE);
+                setWaitingForNetworkIndicatorVisible(false);
             } else {
                 configureClearLogsButton();
                 boolean waitingForNetwork =
                         tunnelState.connectionData().networkConnectionState() ==
                                 TunnelState.ConnectionData.NetworkConnectionState.WAITING_FOR_NETWORK;
-                connectionWaitingNetworkIndicator.setVisibility(waitingForNetwork ? View.VISIBLE : View.INVISIBLE);
+                setWaitingForNetworkIndicatorVisible(waitingForNetwork);
                 connectionProgressBar.setVisibility(waitingForNetwork ? View.INVISIBLE : View.VISIBLE);
             }
         } else {
@@ -565,7 +609,34 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
             toggleButton.setEnabled(true);
             configureClearLogsButton();
             connectionProgressBar.setVisibility(View.INVISIBLE);
-            connectionWaitingNetworkIndicator.setVisibility(View.INVISIBLE);
+            setWaitingForNetworkIndicatorVisible(false);
+        }
+    }
+
+    /**
+     * Show or hide the waiting-for-network bar, running its frame animation only
+     * while it is on screen.
+     */
+    private void setWaitingForNetworkIndicatorVisible(boolean visible) {
+        if (connectionWaitingNetworkIndicator == null) {
+            return;
+        }
+        connectionWaitingNetworkIndicator.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
+        if (waitingNetworkAnimation == null) {
+            return;
+        }
+        if (visible) {
+            if (!waitingNetworkAnimation.isRunning()) {
+                waitingNetworkAnimation.start();
+            }
+        } else {
+            stopWaitingNetworkAnimation();
+        }
+    }
+
+    private void stopWaitingNetworkAnimation() {
+        if (waitingNetworkAnimation != null && waitingNetworkAnimation.isRunning()) {
+            waitingNetworkAnimation.stop();
         }
     }
 
@@ -593,7 +664,41 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
         openBrowserButton.setText(R.string.clear_logs);
         openBrowserButton.setIconResource(R.drawable.sk_ic_clear_logs);
         openBrowserButton.setEnabled(true);
-        openBrowserButton.setOnClickListener(view -> clearStatusLogs());
+        openBrowserButton.setOnClickListener(view -> confirmClearStatusLogs());
+    }
+
+    /**
+     * Ask before wiping the log.
+     *
+     * <p>This button sits next to Connect, deletes every entry and cannot be
+     * undone, and previously did all of that on a single tap with no
+     * confirmation before and no feedback after.
+     */
+    private void confirmClearStatusLogs() {
+        if (isFinishing()) {
+            return;
+        }
+        if (clearLogsAlertDialog != null && clearLogsAlertDialog.isShowing()) {
+            return;
+        }
+        clearLogsAlertDialog = new AlertDialog.Builder(this)
+                .setCancelable(true)
+                .setTitle(R.string.sk_clear_logs_title)
+                .setMessage(R.string.sk_clear_logs_message)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.sk_clear_logs_confirm, (dialog, which) -> {
+                    clearStatusLogs();
+                    SkUi.showSnackbar(this, R.string.sk_logs_cleared);
+                })
+                .create();
+        clearLogsAlertDialog.show();
+    }
+
+    private void dismissClearLogsAlertDialog() {
+        if (clearLogsAlertDialog != null && clearLogsAlertDialog.isShowing()) {
+            clearLogsAlertDialog.dismiss();
+        }
+        clearLogsAlertDialog = null;
     }
 
     private void clearStatusLogs() {

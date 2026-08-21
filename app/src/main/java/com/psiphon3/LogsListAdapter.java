@@ -21,12 +21,15 @@ package com.psiphon3;
 
 
 import android.content.Context;
+import android.text.TextUtils;
+import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.paging.PagedListAdapter;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
@@ -51,6 +54,11 @@ public class LogsListAdapter extends PagedListAdapter<LogEntry, LogsListAdapter.
     @NonNull
     @Override
     public LogEntryViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        // onAttachedToRecyclerView is the usual source of this, but it is not a
+        // guarantee and the context is handed straight to MyLog below.
+        if (context == null) {
+            context = parent.getContext();
+        }
         View itemView = LayoutInflater.from(parent.getContext()).inflate(R.layout.message_row, parent, false);
         return new LogEntryViewHolder(itemView);
     }
@@ -59,22 +67,31 @@ public class LogsListAdapter extends PagedListAdapter<LogEntry, LogsListAdapter.
     public void onBindViewHolder(@NonNull LogEntryViewHolder holder, int position) {
         LogEntry item = getItem(position);
         if (item == null) {
+            // Paging placeholder. Without clearing, the recycled row keeps
+            // showing the entry it displayed before it was rebound.
+            holder.clear();
             return;
         }
+        Date timestamp = new Date(item.getTimestamp());
+        String message;
         if (item.isDiagnostic()) {
             try {
                 JSONObject jsonObj = new JSONObject(item.getLogJson());
-                Date timestamp = new Date(item.getTimestamp());
                 String msg = jsonObj.getString("msg");
                 JSONObject data = jsonObj.optJSONObject("data");
-                String msgStr = data == null ? msg : msg + ":" + data.toString();
-                holder.bind(timestamp, msgStr);
+                message = data == null ? msg : msg + ":" + data.toString();
             } catch (JSONException ignored) {
+                // A malformed diagnostic entry used to leave the holder entirely
+                // unbound, so the row kept the text of whichever entry it was
+                // recycled from: the log then displayed a line that was never
+                // logged, next to the wrong timestamp. Show the raw payload
+                // instead, which is at least true.
+                message = item.getLogJson();
             }
         } else {
-                String msg = MyLog.getStatusLogMessageForDisplay(item.getLogJson(), context);
-                holder.bind(new Date(item.getTimestamp()), msg);
+            message = MyLog.getStatusLogMessageForDisplay(item.getLogJson(), context);
         }
+        holder.bind(timestamp, message);
     }
 
     @Override
@@ -86,18 +103,41 @@ public class LogsListAdapter extends PagedListAdapter<LogEntry, LogsListAdapter.
     static class LogEntryViewHolder extends RecyclerView.ViewHolder {
         private final TextView timestampView;
         private final TextView messageView;
+        // What a long-press puts on the clipboard, or null when the row is blank.
+        @Nullable
+        private String copyPayload;
 
         LogEntryViewHolder(View itemView) {
             super(itemView);
             timestampView = itemView.findViewById(R.id.MessageRow_Timestamp);
             messageView = itemView.findViewById(R.id.MessageRow_Text);
+            // A log line is the first thing anyone is asked for when reporting a
+            // problem, and there was no way to get one out of the app: the rows
+            // are not selectable and there is no share action.
+            itemView.setOnLongClickListener(v -> {
+                if (TextUtils.isEmpty(copyPayload)) {
+                    return false;
+                }
+                v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                SkUi.copyToClipboard(v, R.string.app_name, copyPayload);
+                return true;
+            });
         }
 
-        public void bind(Date timestamp, String msg) {
-            if (timestamp != null && msg != null) {
-                timestampView.setText(Utils.getLocalTimeString(timestamp));
-                messageView.setText(msg);
-            }
+        void bind(@Nullable Date timestamp, @Nullable String msg) {
+            String timestampText = timestamp == null ? "" : Utils.getLocalTimeString(timestamp);
+            String messageText = msg == null ? "" : msg;
+            timestampView.setText(timestampText);
+            messageView.setText(messageText);
+            copyPayload = TextUtils.isEmpty(messageText)
+                    ? null
+                    : (timestampText + " " + messageText).trim();
+        }
+
+        void clear() {
+            timestampView.setText("");
+            messageView.setText("");
+            copyPayload = null;
         }
     }
 

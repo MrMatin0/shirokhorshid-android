@@ -12,9 +12,27 @@
     <string name="sk_status_hint_not_connected">برای اتصال روی نشان ضربه بزنید</string>
 
     <string name="sk_emblem_content_description">اتصال یا قطع اتصال</string>
+    <string name="sk_emblem_action_connect">اتصال</string>
+    <string name="sk_emblem_action_disconnect">قطع اتصال</string>
 
     <string name="sk_stats_session">نشست</string>
     <string name="sk_graph_slow">در هر دقیقه</string>
     <string name="sk_graph_fast">در هر ثانیه</string>
+
+    <string name="sk_session_duration">مدت</string>
+    <string name="sk_session_sent">ارسال</string>
+    <string name="sk_session_received">دریافت</string>
+
+    <string name="sk_copied">در حافطهٔ موقت کپی شد</string>
+    <string name="sk_tap_to_copy">برای کپی روی هر خط ضربه بزنید</string>
+    <string name="sk_long_press_to_copy">برای کپی، روی خط لمس طولانی کنید</string>
+
+    <string name="sk_clear_logs_title">پاک کردن گزارش‌ها؟</string>
+    <string name="sk_clear_logs_message">همهٔ ورودی‌های گزارش حذف می‌شوند. این کار قابل بازگشت نیست.</string>
+    <string name="sk_clear_logs_confirm">پاک کردن</string>
+    <string name="sk_logs_cleared">گزارش‌ها پاک شد</string>
+
+    <string name="sk_logs_empty_title">هنوز چیزی ثبت نشده</string>
+    <string name="sk_logs_empty_body">به‌محض شروع تونل، پیام‌های اتصال اینجا نمایش داده می‌شوند.</string>
 
 </resources>

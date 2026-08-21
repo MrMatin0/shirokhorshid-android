@@ -31,7 +31,7 @@ import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.CompositeDisposable;
 
 public class StatisticsTabFragment extends Fragment {
-    private CompositeDisposable compositeDisposable = new CompositeDisposable();
+    private final CompositeDisposable compositeDisposable = new CompositeDisposable();
 
     private TextView elapsedConnectionTimeView;
     private TextView totalSentView;
@@ -42,6 +42,10 @@ public class StatisticsTabFragment extends Fragment {
     private DataTransferGraph fastReceivedGraph;
 
     private void updateStatisticsUICallback(boolean isConnected) {
+        if (elapsedConnectionTimeView == null) {
+            // View destroyed while an emission was in flight.
+            return;
+        }
         DataTransferStats.DataTransferStatsForUI dataTransferStats = DataTransferStats.getDataTransferStatsForUI();
         elapsedConnectionTimeView.setText(isConnected ? getString(R.string.connected_elapsed_time,
                 Utils.elapsedTimeToDisplay(dataTransferStats.getElapsedTime())) : getString(R.string.disconnected));
@@ -71,7 +75,16 @@ public class StatisticsTabFragment extends Fragment {
         slowReceivedGraph = new DataTransferGraph(fragmentView, R.id.slowReceivedGraph, R.color.sk_green);
         fastSentGraph = new DataTransferGraph(fragmentView, R.id.fastSentGraph, R.color.sk_gold);
         fastReceivedGraph = new DataTransferGraph(fragmentView, R.id.fastReceivedGraph, R.color.sk_green);
+    }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Subscribing here rather than in onViewCreated for two reasons: the old
+        // placement kept repainting four charts while this tab was off screen,
+        // and it paired a per-view subscription with a per-fragment dispose, so
+        // a view recreation either doubled the subscription or (after dispose)
+        // silently got none at all.
         TunnelServiceInteractor tunnelServiceInteractor =
                 ((LocalizedActivities.AppCompatActivity) requireActivity())
                         .getTunnelServiceInteractor();
@@ -81,6 +94,24 @@ public class StatisticsTabFragment extends Fragment {
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnNext(this::updateStatisticsUICallback)
                 .subscribe());
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        compositeDisposable.clear();
+    }
+
+    @Override
+    public void onDestroyView() {
+        elapsedConnectionTimeView = null;
+        totalSentView = null;
+        totalReceivedView = null;
+        slowSentGraph = null;
+        slowReceivedGraph = null;
+        fastSentGraph = null;
+        fastReceivedGraph = null;
+        super.onDestroyView();
     }
 
     @Nullable

@@ -37,7 +37,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="@dimen/sk_hero_height">
 
+                    <!--
+                      The glow used to be drawn at full strength in every state,
+                      which contradicted the dimmed emblem when disconnected.
+                      HomeTabFragment now drives its opacity from tunnel state,
+                      hence the id.
+                    -->
                     <View
+                        android:id="@+id/statusGlow"
                         android:layout_width="@dimen/sk_hero_glow_size"
                         android:layout_height="@dimen/sk_hero_glow_size"
                         android:layout_gravity="center"
@@ -54,10 +61,16 @@
                         android:scaleType="fitCenter" />
                 </FrameLayout>
 
+                <!--
+                  Polite live region: the status line is the only readable
+                  signal for a connection state change, so screen readers need
+                  to be told when it changes.
+                -->
                 <TextView
                     android:id="@+id/connectionStatusLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:accessibilityLiveRegion="polite"
                     android:gravity="center"
                     android:textColor="@color/sk_status_off"
                     android:textSize="22sp"
@@ -74,6 +87,116 @@
                     android:textSize="13sp"
                     tools:text="Tap the emblem to connect" />
 
+                <!--
+                  Live session card: duration and volume are what users check
+                  while connected, and they used to require switching to the
+                  Statistics tab. Fed by the same dataStatsFlowable that tab
+                  uses, so there is no extra polling. Hidden unless connected.
+                -->
+                <LinearLayout
+                    android:id="@+id/homeSessionCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sk_space_l"
+                    android:background="@drawable/sk_card"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal"
+                    android:paddingLeft="@dimen/sk_space_s"
+                    android:paddingTop="@dimen/sk_space_m"
+                    android:paddingRight="@dimen/sk_space_s"
+                    android:paddingBottom="@dimen/sk_space_m"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/sk_session_duration"
+                            android:textAllCaps="true"
+                            android:textColor="@color/sk_text_tertiary"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/homeSessionDuration"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingTop="@dimen/sk_space_xs"
+                            android:textColor="@color/sk_text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            tools:text="00:12:41" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="@dimen/sk_stroke"
+                        android:layout_height="match_parent"
+                        android:background="@color/sk_outline_variant" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/sk_session_sent"
+                            android:textAllCaps="true"
+                            android:textColor="@color/sk_text_tertiary"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/homeSessionSent"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingTop="@dimen/sk_space_xs"
+                            android:textColor="@color/sk_gold"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            tools:text="1.2 MB" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="@dimen/sk_stroke"
+                        android:layout_height="match_parent"
+                        android:background="@color/sk_outline_variant" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/sk_session_received"
+                            android:textAllCaps="true"
+                            android:textColor="@color/sk_text_tertiary"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/homeSessionReceived"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingTop="@dimen/sk_space_xs"
+                            android:textColor="@color/sk_green"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            tools:text="8.4 MB" />
+                    </LinearLayout>
+                </LinearLayout>
+
                 <TextView
                     android:id="@+id/versionline"
                     android:layout_width="wrap_content"
@@ -87,7 +210,8 @@
                 <!--
                   LAN proxy card. This LinearLayout is the view whose visibility
                   the fragment toggles, so the card styling lives on it directly
-                  rather than on a wrapper.
+                  rather than on a wrapper. Each value row is a tap target that
+                  copies its raw value to the clipboard.
                 -->
                 <LinearLayout
                     android:id="@+id/lanProxyInfoSection"
@@ -112,48 +236,76 @@
 
                     <TextView
                         android:id="@+id/lanProxyHttpText"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/sk_space_s"
+                        android:background="@drawable/sk_log_row_selectable"
                         android:fontFamily="monospace"
-                        android:paddingTop="@dimen/sk_space_s"
+                        android:gravity="center"
+                        android:minHeight="40dp"
+                        android:padding="@dimen/sk_space_s"
                         android:textColor="@color/sk_text_primary"
-                        android:textSize="12sp" />
+                        android:textSize="12sp"
+                        tools:text="HTTP 192.168.1.20:8080" />
 
                     <TextView
                         android:id="@+id/lanProxySocksText"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/sk_space_xs"
+                        android:background="@drawable/sk_log_row_selectable"
                         android:fontFamily="monospace"
-                        android:paddingTop="2dp"
+                        android:gravity="center"
+                        android:minHeight="40dp"
+                        android:padding="@dimen/sk_space_s"
                         android:textColor="@color/sk_text_primary"
-                        android:textSize="12sp" />
+                        android:textSize="12sp"
+                        tools:text="SOCKS 192.168.1.20:1080" />
 
                     <TextView
                         android:id="@+id/lanProxyUsernameText"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/sk_space_xs"
+                        android:background="@drawable/sk_log_row_selectable"
                         android:fontFamily="monospace"
-                        android:paddingTop="@dimen/sk_space_s"
+                        android:gravity="center"
+                        android:minHeight="40dp"
+                        android:padding="@dimen/sk_space_s"
                         android:textColor="@color/sk_text_secondary"
                         android:textSize="12sp"
                         android:visibility="gone" />
 
                     <TextView
                         android:id="@+id/lanProxyPasswordText"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/sk_space_xs"
+                        android:background="@drawable/sk_log_row_selectable"
                         android:fontFamily="monospace"
-                        android:paddingTop="2dp"
+                        android:gravity="center"
+                        android:minHeight="40dp"
+                        android:padding="@dimen/sk_space_s"
                         android:textColor="@color/sk_text_secondary"
                         android:textSize="12sp"
                         android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/lanProxyCopyHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:paddingTop="@dimen/sk_space_s"
+                        android:text="@string/sk_tap_to_copy"
+                        android:textColor="@color/sk_text_tertiary"
+                        android:textSize="10sp" />
 
                     <TextView
                         android:id="@+id/lanProxyHint"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center"
-                        android:paddingTop="@dimen/sk_space_s"
+                        android:paddingTop="@dimen/sk_space_xs"
                         android:text="@string/lan_proxy_configure_hint"
                         android:textColor="@color/sk_text_tertiary"
                         android:textSize="10sp" />
