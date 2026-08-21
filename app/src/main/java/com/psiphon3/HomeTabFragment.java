@@ -46,8 +46,11 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.ViewFlipper;
 
+import androidx.annotation.ColorRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
@@ -60,7 +63,6 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Timer;
@@ -71,6 +73,10 @@ import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.CompositeDisposable;
 
 public class HomeTabFragment extends Fragment {
+    // Emblem opacity used to signal "not connected" (~30%).
+    private static final int EMBLEM_ALPHA_DIM = 77;
+    private static final int EMBLEM_ALPHA_FULL = 255;
+
     private MainActivityViewModel viewModel;
     private ViewFlipper sponsorViewFlipper;
     private ScrollView statusLayout;
@@ -81,6 +87,10 @@ public class HomeTabFragment extends Fragment {
     private final CompositeDisposable compositeDisposable = new CompositeDisposable();
     private TextView lastLogEntryTv;
     private ObjectAnimator pulseAnimator;
+
+    // Connection status views
+    private TextView connectionStatusLabel;
+    private TextView connectionStatusHint;
 
     // LAN proxy info views
     private LinearLayout lanProxyInfoSection;
@@ -111,7 +121,22 @@ public class HomeTabFragment extends Fragment {
         statusViewImage = view.findViewById(R.id.statusViewImage);
         // Use Lion & Sun emblem for all states; connection state shown via alpha/animation
         statusViewImage.setImageResource(R.drawable.lion_and_sun);
-        statusViewImage.setImageAlpha(77); // Start dimmed (disconnected)
+        statusViewImage.setImageAlpha(EMBLEM_ALPHA_DIM); // Start dimmed (disconnected)
+        // The emblem is the largest element on the screen, so make it behave like the
+        // control users expect it to be: delegate taps to the Connect/Stop button that
+        // already owns the tunnel start/stop logic and its validation.
+        statusViewImage.setOnClickListener(v -> {
+            View toggleButton = requireActivity().findViewById(R.id.toggleButton);
+            if (toggleButton != null && toggleButton.isEnabled()) {
+                toggleButton.performClick();
+            }
+        });
+
+        connectionStatusLabel = view.findViewById(R.id.connectionStatusLabel);
+        connectionStatusHint = view.findViewById(R.id.connectionStatusHint);
+        setStatusText(R.string.sk_status_not_connected,
+                R.string.sk_status_hint_not_connected,
+                R.color.sk_status_off);
 
         lastLogEntryTv = view.findViewById(R.id.lastlogline);
 
@@ -193,19 +218,50 @@ public class HomeTabFragment extends Fragment {
             if (tunnelState.connectionData().isConnected()) {
                 // Connected: full brightness, no animation
                 stopPulseAnimation();
-                statusViewImage.setImageAlpha(255);
+                statusViewImage.setImageAlpha(EMBLEM_ALPHA_FULL);
+                setStatusText(R.string.sk_status_connected,
+                        R.string.sk_status_hint_connected,
+                        R.color.sk_status_connected);
                 // Show LAN proxy info if sharing is enabled
                 updateLanProxyInfo(tunnelState.connectionData());
             } else {
                 // Connecting: pulse animation
                 startPulseAnimation();
+                boolean waitingForNetwork =
+                        tunnelState.connectionData().networkConnectionState() ==
+                                TunnelState.ConnectionData.NetworkConnectionState.WAITING_FOR_NETWORK;
+                setStatusText(
+                        waitingForNetwork
+                                ? R.string.sk_status_waiting_network
+                                : R.string.sk_status_connecting,
+                        waitingForNetwork
+                                ? R.string.sk_status_hint_waiting_network
+                                : R.string.sk_status_hint_connecting,
+                        R.color.sk_status_connecting);
                 hideLanProxyInfo();
             }
         } else {
             // Disconnected: dim, no animation
             stopPulseAnimation();
-            statusViewImage.setImageAlpha(77);
+            statusViewImage.setImageAlpha(EMBLEM_ALPHA_DIM);
+            setStatusText(R.string.sk_status_not_connected,
+                    R.string.sk_status_hint_not_connected,
+                    R.color.sk_status_off);
             hideLanProxyInfo();
+        }
+    }
+
+    private void setStatusText(@StringRes int labelRes, @StringRes int hintRes, @ColorRes int colorRes) {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        if (connectionStatusLabel != null) {
+            connectionStatusLabel.setText(labelRes);
+            connectionStatusLabel.setTextColor(ContextCompat.getColor(context, colorRes));
+        }
+        if (connectionStatusHint != null) {
+            connectionStatusHint.setText(hintRes);
         }
     }
 
@@ -447,7 +503,8 @@ public class HomeTabFragment extends Fragment {
         if (pulseAnimator != null && pulseAnimator.isRunning()) {
             return; // Already pulsing
         }
-        pulseAnimator = ObjectAnimator.ofInt(statusViewImage, "imageAlpha", 77, 255);
+        pulseAnimator = ObjectAnimator.ofInt(statusViewImage, "imageAlpha",
+                EMBLEM_ALPHA_DIM, EMBLEM_ALPHA_FULL);
         pulseAnimator.setDuration(1000);
         pulseAnimator.setRepeatCount(ValueAnimator.INFINITE);
         pulseAnimator.setRepeatMode(ValueAnimator.REVERSE);
