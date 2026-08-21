@@ -91,7 +91,16 @@
         android:layout_height="@dimen/sk_stroke"
         android:background="@color/sk_outline_variant" />
 
-    <FrameLayout
+    <!--
+      CoordinatorLayout rather than a plain FrameLayout, for two reasons:
+      snackbars anchored here are laid out inside the tab content area instead
+      of on top of the bottom action bar (a confirmation must never cover the
+      Connect button), and the help FAB gets the standard translate-out-of-the
+      -way behaviour for free. It is still a ViewGroup with the same children
+      and the same gravity semantics, so nothing else changes.
+    -->
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:id="@+id/main_content"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
@@ -114,7 +123,7 @@
             app:fabSize="normal"
             app:maxImageSize="48dp"
             app:srcCompat="@drawable/ic_nfc_help" />
-    </FrameLayout>
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
     <!-- Bottom action bar -->
     <LinearLayout
