@@ -8,10 +8,13 @@ android {
     namespace 'net.grandcentrix.tray'
     testNamespace 'net.grandcentrix.tray.test'
 
+    // compileSdk is an android-block property, not a defaultConfig one. It also has
+    // to be recent enough for the AndroidX artifacts this module compiles against.
+    compileSdk 35
+
     defaultConfig {
-        compileSdk 26
-        minSdkVersion 14
-        targetSdkVersion 26
+        minSdkVersion 21
+        targetSdkVersion 35
         versionCode VERSION_CODE
         versionName VERSION_NAME
 
@@ -44,7 +47,6 @@ android {
 }
 
 dependencies {
-    // 1.7.0+ requires minSdk 19, this module ships minSdk 14
     implementation 'androidx.annotation:annotation:1.6.0'
 
     androidTestImplementation 'com.google.dexmaker:dexmaker-mockito:1.2'

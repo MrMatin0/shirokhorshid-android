@@ -230,6 +230,11 @@ tasks.matching { it.name == 'preBuild' }.configureEach {
 android {
     namespace 'com.psiphon3'
 
+    // compileSdk belongs to the android block, NOT to defaultConfig: DefaultConfig
+    // has no such property, so AGP fails at configuration time with
+    // "Could not find method compileSdk() for arguments [35] on DefaultConfig".
+    compileSdk 35
+
     // Version: CalVer YYYY.MM.DD from env var, or version.properties fallback
     def calver = System.getenv('APP_VERSION_NAME') ?: ''
     def verCode
@@ -256,8 +261,9 @@ android {
     defaultConfig {
         applicationId "com.shirokhorshid.vpn"
         resValue "string", "tray__authority", "${applicationId}.tray"
-        minSdkVersion 14
-        compileSdk 35
+        // API 21 (Android 5.0) is the floor: the NDK we build tun2socks with does not
+        // support anything older, and API 14-20 is effectively zero devices today.
+        minSdkVersion 21
         targetSdkVersion 35
         versionCode verCode
         versionName verName
@@ -265,13 +271,13 @@ android {
         multiDexEnabled true
         vectorDrawables.useSupportLibrary = true
 
-                // tun2socks NDK build configuration
-                externalNativeBuild {
-                    ndkBuild {
-                        cFlags "-DNDEBUG"
-                    }
-                }
+        // tun2socks NDK build configuration
+        externalNativeBuild {
+            ndkBuild {
+                cFlags "-DNDEBUG"
             }
+        }
+    }
 
     signingConfigs {
         release
@@ -338,8 +344,10 @@ android {
         throw new GradleException('signing.properties not found!')
     }
 
-    // For android 14 support we have to use ndk r17c or lower
-    ndkVersion '17.2.4988734'
+    // Must be a version that is actually installed on the build machine. The CI
+    // container ships NDK 25/26, and the workflow installs this exact version
+    // with sdkmanager, so keep the two in sync.
+    ndkVersion '25.2.9519653'
     externalNativeBuild {
         ndkBuild {
             // Path to the tun2socks NDK build script

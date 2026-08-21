@@ -480,9 +480,13 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
     // displays a prompt and waits until the user accepts and preference is stored, then completes.
     Completable vpnServiceDataCollectionDisclosureCompletable() {
         return Completable.create(emitter -> {
-            if (multiProcessPreferences.getBoolean(getString(R.string.vpnServiceDataCollectionDisclosureAccepted), false) &&
-                    !emitter.isDisposed()) {
-                emitter.onComplete();
+            // Already accepted: complete and get out. Without the return below the prompt was
+            // inflated and shown again on every resume, on top of an already completed emitter.
+            if (multiProcessPreferences.getBoolean(getString(R.string.vpnServiceDataCollectionDisclosureAccepted), false)) {
+                if (!emitter.isDisposed()) {
+                    emitter.onComplete();
+                }
+                return;
             }
             View dialogView = getLayoutInflater().inflate(R.layout.vpn_data_collection_disclosure_prompt_layout, null);
 
@@ -860,7 +864,10 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
     private boolean handleDeepLinkIntent(@NonNull Intent intent) {
         final String FWD_SLASH = "/";
 
-        final String PSIPHON_SCHEME = "psiphon";
+        // The scheme registered for MainActivity in AndroidManifest.xml. The upstream
+        // "psiphon" scheme is still accepted so links from before the rebrand keep working.
+        final String APP_SCHEME = "shirokhorshid";
+        final String LEGACY_SCHEME = "psiphon";
 
         final String SETTINGS_HOST = "settings";
         final String SETTINGS_PATH_VPN = "/vpn";
@@ -869,16 +876,28 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
 
         Uri intentUri = intent.getData();
         // Check if this is a deep link intent we can handle
-        if (!Intent.ACTION_VIEW.equals(intent.getAction()) ||
-                intentUri == null ||
-                !PSIPHON_SCHEME.equals(intentUri.getScheme())) {
+        if (!Intent.ACTION_VIEW.equals(intent.getAction()) || intentUri == null) {
+            // Intent not handled
+            return false;
+        }
+
+        final String scheme = intentUri.getScheme();
+        if (!APP_SCHEME.equals(scheme) && !LEGACY_SCHEME.equals(scheme)) {
+            // Intent not handled
+            return false;
+        }
+
+        // getHost() is null for scheme-only URIs such as "shirokhorshid:settings", which used
+        // to throw a NullPointerException in the switch below.
+        final String host = intentUri.getHost();
+        if (host == null) {
             // Intent not handled
             return false;
         }
 
         String path = intentUri.getPath();
 
-        switch (intentUri.getHost()) {
+        switch (host) {
             case SETTINGS_HOST:
                 selectTabByTag("settings");
                 if (path != null) {
