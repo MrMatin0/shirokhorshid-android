@@ -26,7 +26,6 @@ import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -61,21 +60,41 @@ public class LoggingContentProvider extends ContentProvider {
         sUriMatcher.addURI(AUTHORITY, "status/delete", DELETE_STATUS_LOGS);
     }
 
-    public static LogEntry convertRows(Cursor cursor) {
-        final int cursorIndexOfId = cursor.getColumnIndexOrThrow("_ID");
-        final int cursorIndexOfLogJson = cursor.getColumnIndexOrThrow("logjson");
-        final int cursorIndexOfIsDiagnostic = cursor.getColumnIndexOrThrow("is_diagnostic");
-        final int cursorIndexOfPriority = cursor.getColumnIndexOrThrow("priority");
-        final int cursorIndexOfTimestamp = cursor.getColumnIndexOrThrow("timestamp");
+    /**
+     * Column indices for the log table, resolved once per {@link Cursor}.
+     *
+     * getColumnIndexOrThrow() is a linear scan over the column name array, and
+     * convertRows() was doing five of them for every single row of every page.
+     */
+    public static final class ColumnIndices {
+        private final int id;
+        private final int logJson;
+        private final int isDiagnostic;
+        private final int priority;
+        private final int timestamp;
 
-        final String tmpLogJson = cursor.getString(cursorIndexOfLogJson);
-        final boolean tmpIsDiagnostic = cursor.getInt(cursorIndexOfIsDiagnostic) != 0;
-        final int tmpPriority = cursor.getInt(cursorIndexOfPriority);
-        final long tmpTimestamp = cursor.getLong(cursorIndexOfTimestamp);
+        public ColumnIndices(Cursor cursor) {
+            id = cursor.getColumnIndexOrThrow("_ID");
+            logJson = cursor.getColumnIndexOrThrow("logjson");
+            isDiagnostic = cursor.getColumnIndexOrThrow("is_diagnostic");
+            priority = cursor.getColumnIndexOrThrow("priority");
+            timestamp = cursor.getColumnIndexOrThrow("timestamp");
+        }
+    }
+
+    public static LogEntry convertRows(Cursor cursor) {
+        return convertRows(cursor, new ColumnIndices(cursor));
+    }
+
+    public static LogEntry convertRows(Cursor cursor, ColumnIndices columns) {
+        final String tmpLogJson = cursor.getString(columns.logJson);
+        final boolean tmpIsDiagnostic = cursor.getInt(columns.isDiagnostic) != 0;
+        final int tmpPriority = cursor.getInt(columns.priority);
+        final long tmpTimestamp = cursor.getLong(columns.timestamp);
 
         final LogEntry logEntry = new LogEntry(tmpLogJson, tmpIsDiagnostic, tmpPriority, tmpTimestamp);
 
-        final int tmpId = cursor.getInt(cursorIndexOfId);
+        final int tmpId = cursor.getInt(columns.id);
         logEntry.setId(tmpId);
 
         return logEntry;

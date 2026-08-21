@@ -63,8 +63,8 @@ import io.reactivex.disposables.Disposable;
 public class TunnelServiceInteractor {
     private static final String SERVICE_STARTING_BROADCAST_INTENT = "SERVICE_STARTING_BROADCAST_INTENT";
     private final BroadcastReceiver broadcastReceiver;
-    private Relay<TunnelState> tunnelStateRelay = BehaviorRelay.<TunnelState>create().toSerialized();
-    private Relay<Boolean> dataStatsRelay = PublishRelay.<Boolean>create().toSerialized();
+    private final Relay<TunnelState> tunnelStateRelay = BehaviorRelay.<TunnelState>create().toSerialized();
+    private final Relay<Boolean> dataStatsRelay = PublishRelay.<Boolean>create().toSerialized();
 
     private final Messenger incomingMessenger = new Messenger(new IncomingMessageHandler(this));
 
@@ -190,18 +190,18 @@ public class TunnelServiceInteractor {
     }
 
     public boolean isServiceRunning(Context context) {
-        String result = null;
         ActivityManager manager = (ActivityManager) context.getSystemService(ACTIVITY_SERVICE);
-        if (manager != null) {
-            for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-                if (service.uid == android.os.Process.myUid() &&
-                        TunnelVpnService.class.getName().equals(service.service.getClassName())) {
-                    result = service.service.getClassName();
-                    break;
-                }
+        if (manager == null) {
+            return false;
+        }
+        final String tunnelServiceName = TunnelVpnService.class.getName();
+        final int myUid = android.os.Process.myUid();
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (service.uid == myUid && tunnelServiceName.equals(service.service.getClassName())) {
+                return true;
             }
         }
-        return result != null;
+        return false;
     }
 
     public void commandTunnelRestart() {
@@ -307,13 +307,15 @@ public class TunnelServiceInteractor {
             return;
         }
         data.setClassLoader(DataTransferStats.DataTransferStatsBase.Bucket.class.getClassLoader());
-        DataTransferStats.getDataTransferStatsForUI().m_connectedTime = data.getLong(TunnelManager.DATA_TRANSFER_STATS_CONNECTED_TIME);
-        DataTransferStats.getDataTransferStatsForUI().m_totalBytesSent = data.getLong(TunnelManager.DATA_TRANSFER_STATS_TOTAL_BYTES_SENT);
-        DataTransferStats.getDataTransferStatsForUI().m_totalBytesReceived = data.getLong(TunnelManager.DATA_TRANSFER_STATS_TOTAL_BYTES_RECEIVED);
-        DataTransferStats.getDataTransferStatsForUI().m_slowBuckets = data.getParcelableArrayList(TunnelManager.DATA_TRANSFER_STATS_SLOW_BUCKETS);
-        DataTransferStats.getDataTransferStatsForUI().m_slowBucketsLastStartTime = data.getLong(TunnelManager.DATA_TRANSFER_STATS_SLOW_BUCKETS_LAST_START_TIME);
-        DataTransferStats.getDataTransferStatsForUI().m_fastBuckets = data.getParcelableArrayList(TunnelManager.DATA_TRANSFER_STATS_FAST_BUCKETS);
-        DataTransferStats.getDataTransferStatsForUI().m_fastBucketsLastStartTime = data.getLong(TunnelManager.DATA_TRANSFER_STATS_FAST_BUCKETS_LAST_START_TIME);
+        // Resolve the singleton once instead of eight times.
+        final DataTransferStats.DataTransferStatsForUI stats = DataTransferStats.getDataTransferStatsForUI();
+        stats.m_connectedTime = data.getLong(TunnelManager.DATA_TRANSFER_STATS_CONNECTED_TIME);
+        stats.m_totalBytesSent = data.getLong(TunnelManager.DATA_TRANSFER_STATS_TOTAL_BYTES_SENT);
+        stats.m_totalBytesReceived = data.getLong(TunnelManager.DATA_TRANSFER_STATS_TOTAL_BYTES_RECEIVED);
+        stats.m_slowBuckets = data.getParcelableArrayList(TunnelManager.DATA_TRANSFER_STATS_SLOW_BUCKETS);
+        stats.m_slowBucketsLastStartTime = data.getLong(TunnelManager.DATA_TRANSFER_STATS_SLOW_BUCKETS_LAST_START_TIME);
+        stats.m_fastBuckets = data.getParcelableArrayList(TunnelManager.DATA_TRANSFER_STATS_FAST_BUCKETS);
+        stats.m_fastBucketsLastStartTime = data.getLong(TunnelManager.DATA_TRANSFER_STATS_FAST_BUCKETS_LAST_START_TIME);
     }
 
     private static class IncomingMessageHandler extends Handler {
@@ -333,7 +335,10 @@ public class TunnelServiceInteractor {
             if (tunnelServiceInteractor == null) {
                 return;
             }
-            if (msg.what > scm.length) {
+            // Was 'msg.what > scm.length', which is off by one: msg.what == scm.length fell
+            // through to scm[msg.what] and threw ArrayIndexOutOfBoundsException. Negative
+            // values were not guarded at all.
+            if (msg.what < 0 || msg.what >= scm.length) {
                 super.handleMessage(msg);
                 return;
             }
@@ -364,7 +369,9 @@ public class TunnelServiceInteractor {
                     break;
                 case DATA_TRANSFER_STATS:
                     getDataTransferStatsFromBundle(data);
-                    tunnelServiceInteractor.dataStatsRelay.accept(state.isConnected());
+                    // state is null until the first TUNNEL_CONNECTION_STATE arrives, and the
+                    // service is free to send stats first.
+                    tunnelServiceInteractor.dataStatsRelay.accept(state != null && state.isConnected());
                     break;
                 case NFC_CONNECTION_INFO_EXCHANGE_EXPORT:
                     if (tunnelServiceInteractor.nfcExportListener != null) {

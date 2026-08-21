@@ -104,10 +104,16 @@ public class LogsDataSourceFactory extends DataSource.Factory<Integer, LogEntry>
                 if (cursor == null) {
                     return Collections.emptyList();
                 }
-                final List<LogEntry> logEntryList = new ArrayList<>(cursor.getCount());
+                final int rowCount = cursor.getCount();
+                if (rowCount == 0) {
+                    return Collections.emptyList();
+                }
+                // Resolve column indices once for the whole page instead of per row.
+                final LoggingContentProvider.ColumnIndices columns =
+                        new LoggingContentProvider.ColumnIndices(cursor);
+                final List<LogEntry> logEntryList = new ArrayList<>(rowCount);
                 while (cursor.moveToNext()) {
-                    final LogEntry logEntry = LoggingContentProvider.convertRows(cursor);
-                    logEntryList.add(logEntry);
+                    logEntryList.add(LoggingContentProvider.convertRows(cursor, columns));
                 }
                 return logEntryList;
             }
