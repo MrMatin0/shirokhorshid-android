@@ -193,15 +193,31 @@ jobs:
         run: |
           touch server_entries.txt
           if [ -n "$FETCH_SCRIPT" ]; then
-            pip3 install cryptography --quiet
-            printenv FETCH_SCRIPT > fetch_server_list.py
-            SERVER_ENTRIES_OUTPUT=server_entries.txt python3 fetch_server_list.py || echo "Warning: Fetch script failed, using fallback."
-            rm -f fetch_server_list.py
+            echo "Using FETCH_SERVER_LIST_SCRIPT from repository secrets."
+            pip3 install cryptography --quiet \
+              || pip3 install cryptography --quiet --break-system-packages \
+              || echo "::warning::Could not install cryptography."
+            printenv FETCH_SCRIPT > custom_fetch_server_list.py
+            SERVER_ENTRIES_OUTPUT=server_entries.txt python3 custom_fetch_server_list.py \
+              || echo "::warning::Custom fetch script failed; falling back to the in-repo fetcher."
+            rm -f custom_fetch_server_list.py
+          fi
+          # Fall back to (or start with) the in-repo fetcher, which needs no
+          # secrets and no pip: it downloads Psiphon's public remote server
+          # list and verifies its signature before embedding the entries.
+          if [ ! -s server_entries.txt ]; then
+            SERVER_ENTRIES_OUTPUT=server_entries.txt python3 scripts/fetch_server_list.py \
+              || echo "::warning::Server list fetch failed."
+          fi
+          COUNT=$(grep -c . server_entries.txt || true)
+          if [ "$COUNT" = "0" ]; then
+            echo "::warning::No server entries embedded. The app will have to fetch a remote server list on first run, which may fail on a censored network."
           else
-            echo "Notice: FETCH_SERVER_LIST_SCRIPT not set. Using empty/default server list."
+            echo "::notice::Embedding $COUNT server entries."
           fi
         env:
           FETCH_SCRIPT: ${{ secrets.FETCH_SERVER_LIST_SCRIPT }}
+          MAX_SERVER_ENTRIES: '100'
           PSIPHON_REMOTE_SERVER_LIST_SIGNATURE_PUBLIC_KEY: ${{ secrets.PSIPHON_REMOTE_SERVER_LIST_SIGNATURE_PUBLIC_KEY }}
           PSIPHON_REMOTE_SERVER_LIST_URLS_JSON: ${{ secrets.PSIPHON_REMOTE_SERVER_LIST_URLS_JSON }}
 
