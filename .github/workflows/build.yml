@@ -30,7 +30,10 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          # tunnel-core's vendored psiphon-tls imports crypto/hpke, which is
+          # only available in the standard library from Go 1.26 onward.
+          go-version: '1.26.3'
+          check-latest: true
           cache: false
 
       - name: Install Android NDK 23 and platform 30
