@@ -1,6 +1,6 @@
 package com.psiphon3;
 
-import android.graphics.Color;
+import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,6 +10,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.psiphon3.psiphonlibrary.DataTransferStats;
@@ -66,10 +67,10 @@ public class StatisticsTabFragment extends Fragment {
         totalSentView = fragmentView.findViewById(R.id.totalSent);
         totalReceivedView = fragmentView.findViewById(R.id.totalReceived);
 
-        slowSentGraph = new DataTransferGraph(fragmentView, R.id.slowSentGraph);
-        slowReceivedGraph = new DataTransferGraph(fragmentView, R.id.slowReceivedGraph);
-        fastSentGraph = new DataTransferGraph(fragmentView, R.id.fastSentGraph);
-        fastReceivedGraph = new DataTransferGraph(fragmentView, R.id.fastReceivedGraph);
+        slowSentGraph = new DataTransferGraph(fragmentView, R.id.slowSentGraph, R.color.sk_gold);
+        slowReceivedGraph = new DataTransferGraph(fragmentView, R.id.slowReceivedGraph, R.color.sk_green);
+        fastSentGraph = new DataTransferGraph(fragmentView, R.id.fastSentGraph, R.color.sk_gold);
+        fastReceivedGraph = new DataTransferGraph(fragmentView, R.id.fastReceivedGraph, R.color.sk_green);
 
         TunnelServiceInteractor tunnelServiceInteractor =
                 ((LocalizedActivities.AppCompatActivity) requireActivity())
@@ -96,11 +97,12 @@ public class StatisticsTabFragment extends Fragment {
         private final XYSeries m_chartCurrentSeries;
         private final XYSeriesRenderer m_chartCurrentRenderer;
 
-        DataTransferGraph(View containerView, int layoutId) {
+        DataTransferGraph(View containerView, int layoutId, int seriesColorRes) {
             m_graphLayout = containerView.findViewById(layoutId);
+            Context context = containerView.getContext();
             m_chartDataset = new XYMultipleSeriesDataset();
             m_chartRenderer = new XYMultipleSeriesRenderer();
-            m_chartRenderer.setGridColor(Color.GRAY);
+            m_chartRenderer.setGridColor(ContextCompat.getColor(context, R.color.sk_outline));
             m_chartRenderer.setShowGrid(true);
             m_chartRenderer.setShowLabels(false);
             m_chartRenderer.setShowLegend(false);
@@ -118,7 +120,8 @@ public class StatisticsTabFragment extends Fragment {
             m_chartCurrentSeries = new XYSeries("");
             m_chartDataset.addSeries(m_chartCurrentSeries);
             m_chartCurrentRenderer = new XYSeriesRenderer();
-            m_chartCurrentRenderer.setColor(Color.YELLOW);
+            m_chartCurrentRenderer.setColor(ContextCompat.getColor(context, seriesColorRes));
+            m_chartCurrentRenderer.setLineWidth(2.5f);
             m_chartRenderer.addSeriesRenderer(m_chartCurrentRenderer);
         }
 
