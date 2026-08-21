@@ -8,32 +8,48 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  -->
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:orientation="horizontal"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content">
-    
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="@dimen/sk_space_xs"
+    android:background="@drawable/sk_log_row"
+    android:orientation="horizontal"
+    android:paddingLeft="@dimen/sk_space_m"
+    android:paddingTop="@dimen/sk_space_s"
+    android:paddingRight="@dimen/sk_space_m"
+    android:paddingBottom="@dimen/sk_space_s">
+
     <TextView
         android:id="@+id/MessageRow.Timestamp"
-        android:layout_marginRight="5dp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="left"
-        android:textIsSelectable="false"/>
-    <TextView 
+        android:layout_marginEnd="@dimen/sk_space_m"
+        android:layout_marginRight="@dimen/sk_space_m"
+        android:fontFamily="monospace"
+        android:textColor="@color/sk_text_tertiary"
+        android:textIsSelectable="false"
+        android:textSize="11sp"
+        tools:text="18:04:22" />
+
+    <TextView
         android:id="@+id/MessageRow.Text"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textIsSelectable="false"/>
+        android:layout_weight="1"
+        android:textColor="@color/sk_text_secondary"
+        android:textIsSelectable="false"
+        android:textSize="12sp"
+        tools:text="Connected" />
 </LinearLayout>

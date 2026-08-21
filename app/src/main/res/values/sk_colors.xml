@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Shir o Khorshid colour palette.
+
+  Every token is prefixed `sk_` so it can never collide with a resource coming
+  from ca.psiphon.aar, the tray module or AndroidX.
+
+  The palette is derived from the Lion & Sun emblem: the saffron gold of the
+  sun is the brand/primary colour, the crimson of the lion is used for errors
+  and destructive states, and a Persian green signals a healthy tunnel.
+  Surfaces are a layered near-black stack rather than a single flat grey so
+  cards read as elevated without needing shadows.
+-->
+<resources>
+
+    <!-- Surfaces, darkest to lightest -->
+    <color name="sk_night_900">#FF0A0D12</color>
+    <color name="sk_night_800">#FF111620</color>
+    <color name="sk_night_700">#FF171E29</color>
+    <color name="sk_night_600">#FF1F2836</color>
+
+    <!-- Hairlines -->
+    <color name="sk_outline">#FF2C3745</color>
+    <color name="sk_outline_variant">#FF212B37</color>
+
+    <!-- Brand: gold of the sun -->
+    <color name="sk_gold">#FFF2B233</color>
+    <color name="sk_gold_dim">#FFC98F26</color>
+    <color name="sk_gold_translucent">#80F2B233</color>
+    <color name="sk_gold_disabled">#61F2B233</color>
+    <color name="sk_gold_container">#FF3A2C0E</color>
+    <color name="sk_on_gold">#FF1A1204</color>
+    <color name="sk_on_gold_disabled">#611A1204</color>
+
+    <!-- Secondary: connected green -->
+    <color name="sk_green">#FF34C48C</color>
+    <color name="sk_green_container">#FF0E2D22</color>
+    <color name="sk_on_green">#FF04150F</color>
+
+    <!-- Tertiary / error: crimson of the lion -->
+    <color name="sk_crimson">#FFE05252</color>
+    <color name="sk_on_crimson">#FF1B0505</color>
+
+    <!-- Text -->
+    <color name="sk_text_primary">#FFEDF2F8</color>
+    <color name="sk_text_secondary">#FFA3B0C0</color>
+    <color name="sk_text_tertiary">#FF6D798A</color>
+
+    <!-- Connection status accents -->
+    <color name="sk_status_connected">#FF34C48C</color>
+    <color name="sk_status_connecting">#FFF2B233</color>
+    <color name="sk_status_off">#FF7A8593</color>
+
+    <!-- Radial glow behind the emblem -->
+    <color name="sk_glow_center">#47F2B233</color>
+    <color name="sk_glow_edge">#00F2B233</color>
+
+</resources>

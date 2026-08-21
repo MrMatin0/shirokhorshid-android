@@ -1,13 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Shir o Khorshid theming.
+
+  `Theme.Psiphon` and `Theme.Psiphon.NoActionBar` intentionally keep their
+  historical names: they are referenced from AndroidManifest.xml, so renaming
+  them would be a needless breaking change. All of the design tokens live in
+  `Base.Theme.ShirOKhorshid`, and the API 35 edge-to-edge opt-out lives in the
+  thin `Base.Theme.ShirOKhorshid.Compat` layer that values-v35 overrides. That
+  way the platform-specific override no longer has to duplicate the palette.
+-->
 <resources>
-    <style name="Theme.Psiphon" parent="Theme.AppCompat">
-        <!-- workaround for opting out of edge-to-edge enforcement, see v35+ specific styles -->
+
+    <style name="Base.Theme.ShirOKhorshid" parent="Theme.Material3.Dark">
+
+        <!-- Brand: gold of the sun -->
+        <item name="colorPrimary">@color/sk_gold</item>
+        <item name="colorOnPrimary">@color/sk_on_gold</item>
+        <item name="colorPrimaryContainer">@color/sk_gold_container</item>
+        <item name="colorOnPrimaryContainer">@color/sk_gold</item>
+
+        <!-- Secondary: connected green -->
+        <item name="colorSecondary">@color/sk_green</item>
+        <item name="colorOnSecondary">@color/sk_on_green</item>
+        <item name="colorSecondaryContainer">@color/sk_green_container</item>
+        <item name="colorOnSecondaryContainer">@color/sk_green</item>
+
+        <!-- Tertiary / error: crimson of the lion -->
+        <item name="colorTertiary">@color/sk_crimson</item>
+        <item name="colorOnTertiary">@color/sk_on_crimson</item>
+        <item name="colorError">@color/sk_crimson</item>
+        <item name="colorOnError">@color/sk_on_crimson</item>
+
+        <!-- Surfaces -->
+        <item name="android:colorBackground">@color/sk_night_900</item>
+        <item name="colorOnBackground">@color/sk_text_primary</item>
+        <item name="colorSurface">@color/sk_night_800</item>
+        <item name="colorOnSurface">@color/sk_text_primary</item>
+        <item name="colorSurfaceVariant">@color/sk_night_700</item>
+        <item name="colorOnSurfaceVariant">@color/sk_text_secondary</item>
+        <item name="colorOutline">@color/sk_outline</item>
+        <item name="colorOutlineVariant">@color/sk_outline_variant</item>
+        <item name="android:windowBackground">@color/sk_night_900</item>
+
+        <!-- androidx.preference otherwise falls back to an internal default -->
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
     </style>
-    <style name="Theme.Psiphon.NoActionBar" parent="Theme.AppCompat.NoActionBar">
-    </style>
-    <style name="Theme.DialogAlert" parent="Theme.AppCompat.Dialog.Alert">
-        <item name="android:windowIsFloating">true</item>
+
+    <!-- Overridden in values-v35 to opt out of edge-to-edge enforcement -->
+    <style name="Base.Theme.ShirOKhorshid.Compat" />
+
+    <style name="Theme.Psiphon" parent="Base.Theme.ShirOKhorshid.Compat" />
+
+    <style name="Theme.Psiphon.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
     </style>
- </resources>
+
+    <style name="Theme.DialogAlert" parent="Theme.Material3.Dark.Dialog.Alert">
+        <item name="android:windowIsFloating">true</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="colorPrimary">@color/sk_gold</item>
+        <item name="colorOnPrimary">@color/sk_on_gold</item>
+        <item name="colorError">@color/sk_crimson</item>
+        <item name="colorSurface">@color/sk_night_800</item>
+        <item name="colorOnSurface">@color/sk_text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/sk_text_secondary</item>
+        <item name="android:colorBackground">@color/sk_night_800</item>
+    </style>
+
+</resources>

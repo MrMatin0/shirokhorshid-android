@@ -1,23 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-
+<!-- Embedded web view loading bar. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-  
-    <!-- Define the background properties like color etc -->
+
     <item android:id="@android:id/background">
         <shape>
-            <solid android:color="@android:color/background_light" />
+            <solid android:color="@color/sk_night_700" />
         </shape>
     </item>
 
-    <!-- Define the progress properties like start color, end color etc -->
     <item android:id="@android:id/progress">
         <clip>
             <shape>
                 <gradient
-                    android:startColor="#EA8C1C"
-                    android:centerColor="#829183"
-                    android:endColor="#42A0CD"
-                />
+                    android:startColor="@color/sk_gold"
+                    android:endColor="@color/sk_green" />
             </shape>
         </clip>
     </item>

@@ -8,147 +8,204 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  -->
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@color/sk_night_900"
     android:orientation="vertical">
 
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/main_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/sk_night_900"
+        android:contentInsetStart="0dp"
+        android:contentInsetLeft="0dp"
+        app:contentInsetStart="0dp"
+        app:contentInsetLeft="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="@dimen/sk_space_l"
+                android:layout_marginLeft="@dimen/sk_space_l"
+                android:contentDescription="@string/app_name"
+                android:src="@mipmap/ic_launcher" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/sk_space_m"
+                android:layout_marginLeft="@dimen/sk_space_m"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/app_name"
+                android:textColor="@color/sk_text_primary"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+    </com.google.android.material.appbar.MaterialToolbar>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/sk_stroke"
+        android:background="@color/sk_outline_variant" />
+
+    <com.psiphon3.PsiphonTabLayout
+        android:id="@+id/main_activity_tablayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/sk_night_900"
+        app:tabIndicator="@drawable/sk_tab_indicator"
+        app:tabIndicatorColor="@color/sk_gold"
+        app:tabIndicatorFullWidth="false"
+        app:tabIndicatorGravity="bottom"
+        app:tabIndicatorHeight="3dp"
+        app:tabPaddingEnd="@dimen/sk_space_m"
+        app:tabPaddingStart="@dimen/sk_space_m"
+        app:tabSelectedTextColor="@color/sk_text_primary"
+        app:tabTextColor="@color/sk_text_tertiary" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/sk_stroke"
+        android:background="@color/sk_outline_variant" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.viewpager.widget.ViewPager
+            android:id="@+id/tabs_view_pager"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/help_connect_fab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end|bottom"
+            android:layout_margin="@dimen/sk_space_l"
+            android:tint="@color/sk_on_gold"
+            android:tooltipText="@string/help_connect_fab_tooltip"
+            android:visibility="gone"
+            app:backgroundTint="@color/sk_gold"
+            app:fabSize="normal"
+            app:maxImageSize="48dp"
+            app:srcCompat="@drawable/ic_nfc_help" />
+    </FrameLayout>
+
+    <!-- Bottom action bar -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/sk_night_800"
         android:orientation="vertical">
 
-        <androidx.appcompat.widget.Toolbar
-            android:id="@+id/main_toolbar"
+        <View
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary"
-            android:contentInsetStart="0dp"
-            android:contentInsetLeft="0dp"
-            app:contentInsetStart="0dp"
-            app:contentInsetLeft="0dp">
+            android:layout_height="@dimen/sk_stroke"
+            android:background="@color/sk_outline_variant" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <ImageView
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:layout_marginStart="4dp"
-                    android:layout_marginLeft="4dp"
-                    android:src="@mipmap/ic_launcher"
-                    android:contentDescription="@string/app_name" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_marginLeft="8dp"
-                    android:text="@string/app_name"
-                    android:textColor="@android:color/white"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-            </LinearLayout>
-        </androidx.appcompat.widget.Toolbar>
-
+        <!--
+          Both indicators live in the same slot: the horizontal progress bar is
+          shown while connecting, the animated bar while waiting for a network.
+        -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1.0">
+            android:layout_height="@dimen/sk_progress_track_height">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical">
-
-                <com.psiphon3.PsiphonTabLayout
-                    android:id="@+id/main_activity_tablayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
-
-                <androidx.viewpager.widget.ViewPager
-                    android:id="@+id/tabs_view_pager"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/help_connect_fab"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end|bottom"
-                android:layout_margin="16dp"
-                app:srcCompat="@drawable/ic_nfc_help"
-                app:backgroundTint="@android:color/white"
-                android:tint="@android:color/black"
-                app:maxImageSize="48dp"
-                android:visibility="gone"
-                android:tooltipText="@string/help_connect_fab_tooltip"
-                app:fabSize="normal" />
-        </FrameLayout>
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:id="@+id/buttonPanel"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2.0">
-
-                <Button
-                    android:id="@+id/toggleButton"
-                    android:layout_width="fill_parent"
-                    android:layout_height="fill_parent"
-                    android:layout_weight="1.0"
-                    android:text="@string/start"
-                    android:textAppearance="?android:attr/textAppearanceSmall" />
-
-                <Button
-                    android:id="@+id/openBrowserButton"
-                    android:layout_width="fill_parent"
-                    android:layout_height="fill_parent"
-                    android:layout_weight="1.0"
-                    android:text="@string/open_browser"
-                    android:textAppearance="?android:attr/textAppearanceSmall" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/connectionWaitingNetworkIndicator"
-                android:layout_width="match_parent"
-                android:layout_height="8dp"
-                android:layout_alignTop="@+id/buttonPanel"
-                android:background="@drawable/connection_waiting_network_animation_drawable"
-                android:orientation="horizontal"
-                android:visibility="invisible" />
             <ProgressBar
                 android:id="@+id/connectionProgressBar"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
-                android:layout_height="8dp"
-                android:layout_alignTop="@+id/buttonPanel"
-                android:visibility="invisible"
-                android:indeterminate="true" />
+                android:layout_height="@dimen/sk_progress_track_height"
+                android:indeterminate="true"
+                android:indeterminateTint="@color/sk_gold"
+                android:visibility="invisible" />
 
-        </RelativeLayout>
+            <LinearLayout
+                android:id="@+id/connectionWaitingNetworkIndicator"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/sk_progress_track_height"
+                android:background="@drawable/connection_waiting_network_animation_drawable"
+                android:orientation="horizontal"
+                android:visibility="invisible" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/buttonPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:orientation="horizontal"
+            android:padding="@dimen/sk_space_l">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/toggleButton"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/sk_action_button_height"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:insetBottom="0dp"
+                android:insetTop="0dp"
+                android:maxLines="1"
+                android:text="@string/start"
+                android:textColor="@color/sk_btn_primary_fg"
+                android:textSize="15sp"
+                app:backgroundTint="@color/sk_btn_primary_bg"
+                app:cornerRadius="@dimen/sk_radius_pill"
+                app:icon="@drawable/sk_ic_power"
+                app:iconGravity="textStart"
+                app:iconPadding="@dimen/sk_space_s"
+                app:iconSize="@dimen/sk_action_icon_size"
+                app:iconTint="@color/sk_btn_primary_fg" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/openBrowserButton"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/sk_action_button_height"
+                android:layout_marginStart="@dimen/sk_space_m"
+                android:layout_marginLeft="@dimen/sk_space_m"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:insetBottom="0dp"
+                android:insetTop="0dp"
+                android:maxLines="1"
+                android:text="@string/open_browser"
+                android:textColor="@color/sk_text_primary"
+                android:textSize="15sp"
+                app:backgroundTint="@android:color/transparent"
+                app:cornerRadius="@dimen/sk_radius_pill"
+                app:icon="@drawable/sk_ic_open_in_new"
+                app:iconGravity="textStart"
+                app:iconPadding="@dimen/sk_space_s"
+                app:iconSize="@dimen/sk_action_icon_size"
+                app:iconTint="@color/sk_text_secondary"
+                app:strokeColor="@color/sk_outline"
+                app:strokeWidth="@dimen/sk_stroke" />
+        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>
