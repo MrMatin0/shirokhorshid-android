@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Shir o Khorshid spacing, radius and size scale.
+  Layouts should reference these instead of inventing new magic numbers.
+-->
+<resources>
+
+    <!-- 4dp baseline spacing scale -->
+    <dimen name="sk_space_xs">4dp</dimen>
+    <dimen name="sk_space_s">8dp</dimen>
+    <dimen name="sk_space_m">12dp</dimen>
+    <dimen name="sk_space_l">16dp</dimen>
+    <dimen name="sk_space_xl">20dp</dimen>
+    <dimen name="sk_space_xxl">28dp</dimen>
+
+    <!-- Shape -->
+    <dimen name="sk_radius_card">20dp</dimen>
+    <dimen name="sk_radius_small">10dp</dimen>
+    <dimen name="sk_radius_pill">28dp</dimen>
+    <dimen name="sk_stroke">1dp</dimen>
+
+    <!-- Components -->
+    <dimen name="sk_action_button_height">56dp</dimen>
+    <dimen name="sk_action_icon_size">18dp</dimen>
+    <dimen name="sk_hero_height">260dp</dimen>
+    <dimen name="sk_hero_glow_size">240dp</dimen>
+    <dimen name="sk_hero_emblem_size">210dp</dimen>
+    <dimen name="sk_progress_track_height">6dp</dimen>
+
+</resources>

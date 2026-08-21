@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings introduced by the UI/UX modernization. Translatable: Persian
+  translations live in values-fa/sk_ui_strings.xml.
+-->
+<resources>
+
+    <!-- Connection status, shown under the emblem on the Home tab -->
+    <string name="sk_status_connected">Connected</string>
+    <string name="sk_status_connecting">Connecting\u2026</string>
+    <string name="sk_status_waiting_network">Waiting for network</string>
+    <string name="sk_status_not_connected">Not connected</string>
+
+    <!-- Supporting line under the status -->
+    <string name="sk_status_hint_connected">Your traffic is going through the tunnel</string>
+    <string name="sk_status_hint_connecting">Finding a server that works\u2026</string>
+    <string name="sk_status_hint_waiting_network">No usable connection right now</string>
+    <string name="sk_status_hint_not_connected">Tap the emblem to connect</string>
+
+    <string name="sk_emblem_content_description">Connect or disconnect</string>
+
+    <!-- Statistics tab -->
+    <string name="sk_stats_session">Session</string>
+    <string name="sk_graph_slow">Per minute</string>
+    <string name="sk_graph_fast">Per second</string>
+
+</resources>

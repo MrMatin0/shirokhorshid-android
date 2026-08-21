@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Soft radial glow behind the Lion & Sun emblem. A fixed dp radius is used on
+  purpose: fractional gradientRadius values are not honoured on older
+  platforms this app still supports.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:type="radial"
+        android:centerX="0.5"
+        android:centerY="0.5"
+        android:gradientRadius="120dp"
+        android:startColor="@color/sk_glow_center"
+        android:endColor="@color/sk_glow_edge" />
+</shape>
