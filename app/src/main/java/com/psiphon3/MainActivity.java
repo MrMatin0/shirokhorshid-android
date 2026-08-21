@@ -44,7 +44,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -62,6 +61,7 @@ import androidx.fragment.app.FragmentPagerAdapter;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.viewpager.widget.ViewPager;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.tabs.TabLayout;
 import com.psiphon3.VpnRulesHelper;
@@ -81,7 +81,6 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 import io.reactivex.Completable;
@@ -100,10 +99,10 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
 
     private static final String CURRENT_TAB = "currentTab";
     private final CompositeDisposable compositeDisposable = new CompositeDisposable();
-    private Button toggleButton;
+    private MaterialButton toggleButton;
     private ProgressBar connectionProgressBar;
     private ViewGroup connectionWaitingNetworkIndicator;
-    private Button openBrowserButton;
+    private MaterialButton openBrowserButton;
     private MainActivityViewModel viewModel;
     private Toast invalidProxySettingsToast;
     private AppPreferences multiProcessPreferences;
@@ -536,11 +535,13 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
             configureClearLogsButton();
             toggleButton.setEnabled(false);
             toggleButton.setText(getText(R.string.waiting));
+            toggleButton.setIconResource(R.drawable.sk_ic_power);
             connectionProgressBar.setVisibility(View.INVISIBLE);
             connectionWaitingNetworkIndicator.setVisibility(View.INVISIBLE);
         } else if (tunnelState.isRunning()) {
             toggleButton.setEnabled(true);
             toggleButton.setText(getText(R.string.stop));
+            toggleButton.setIconResource(R.drawable.sk_ic_stop);
             if (tunnelState.connectionData().isConnected()) {
                 configureOpenBrowserButton(tunnelState);
                 connectionProgressBar.setVisibility(View.INVISIBLE);
@@ -556,6 +557,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
         } else {
             // Service not running
             toggleButton.setText(getText(R.string.start));
+            toggleButton.setIconResource(R.drawable.sk_ic_power);
             toggleButton.setEnabled(true);
             configureClearLogsButton();
             connectionProgressBar.setVisibility(View.INVISIBLE);
@@ -565,6 +567,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
 
     private void configureOpenBrowserButton(final TunnelState tunnelState) {
         openBrowserButton.setText(R.string.open_browser);
+        openBrowserButton.setIconResource(R.drawable.sk_ic_open_in_new);
         openBrowserButton.setEnabled(true);
 
         ArrayList<String> homePages = tunnelState.connectionData().homePages();
@@ -584,6 +587,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
 
     private void configureClearLogsButton() {
         openBrowserButton.setText(R.string.clear_logs);
+        openBrowserButton.setIconResource(R.drawable.sk_ic_clear_logs);
         openBrowserButton.setEnabled(true);
         openBrowserButton.setOnClickListener(view -> clearStatusLogs());
     }
