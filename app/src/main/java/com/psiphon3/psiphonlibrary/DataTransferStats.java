@@ -123,19 +123,74 @@ public class DataTransferStats {
         }
 
         private ArrayList<Bucket> newBuckets() {
-            ArrayList<Bucket> buckets = new ArrayList<>();
+            // Pre-sized: the list is always exactly MAX_BUCKETS long, so there is no
+            // reason to let ArrayList grow (and copy) its way there.
+            ArrayList<Bucket> buckets = new ArrayList<>(MAX_BUCKETS);
             for (int i = 0; i < MAX_BUCKETS; i++) {
                 buckets.add(new Bucket());
             }
             return buckets;
         }
 
+        private void refillWithEmptyBuckets(ArrayList<Bucket> buckets) {
+            buckets.clear();
+            for (int i = 0; i < MAX_BUCKETS; i++) {
+                buckets.add(new Bucket());
+            }
+        }
+
+        /**
+         * Advances the bucket window by the number of periods that have elapsed.
+         *
+         * This is on the tunnel data path (manageBuckets() is called from every
+         * addBytesSent/addBytesReceived), so cost matters. The previous implementation
+         * looped once per elapsed period and called ArrayList.remove(0) each time,
+         * which is an O(MAX_BUCKETS) arraycopy. For the 1 second fast buckets a long
+         * idle gap meant an unbounded loop: a 24 hour gap is ~86,400 iterations x a
+         * 288 element shift, all while holding the instance monitor.
+         *
+         * Two changes, both output-identical:
+         *   1. Once MAX_BUCKETS periods have elapsed every pre-existing bucket has
+         *      been evicted, so the result is just a window of empty buckets. Clamp
+         *      there instead of spinning.
+         *   2. Evict the oldest buckets in a single batch removal rather than one
+         *      remove(0) per shift.
+         */
         private void shiftBuckets(long diff, long period, ArrayList<Bucket> buckets) {
-            for (int i = 0; i < diff / period + 1; i++) {
-                buckets.add(buckets.size(), new Bucket());
-                if (buckets.size() >= MAX_BUCKETS) {
-                    buckets.remove(0);
+            final long shifts = diff / period + 1;
+
+            if (shifts >= MAX_BUCKETS) {
+                refillWithEmptyBuckets(buckets);
+                return;
+            }
+
+            final int shiftCount = (int) shifts;
+            final int startSize = buckets.size();
+
+            // Mirror the original per-shift eviction rule ("after appending, drop the
+            // oldest bucket if the window is full") without touching the array each
+            // time; this only differs from a plain min() when the list somehow starts
+            // out shorter than MAX_BUCKETS, e.g. after a partial parcel restore.
+            int size = startSize;
+            int evictions = 0;
+            for (int i = 0; i < shiftCount; i++) {
+                size++;
+                if (size >= MAX_BUCKETS) {
+                    size--;
+                    evictions++;
                 }
+            }
+            if (evictions > startSize) {
+                evictions = startSize;
+            }
+
+            buckets.ensureCapacity(startSize + shiftCount);
+            for (int i = 0; i < shiftCount; i++) {
+                buckets.add(new Bucket());
+            }
+            if (evictions > 0) {
+                // One arraycopy instead of `evictions` of them.
+                buckets.subList(0, evictions).clear();
             }
         }
 
@@ -200,16 +255,18 @@ public class DataTransferStats {
         }
 
         private ArrayList<Long> getSentSeries(ArrayList<Bucket> buckets) {
-            ArrayList<Long> series = new ArrayList<>();
-            for (int i = 0; i < buckets.size(); i++) {
+            final int size = buckets.size();
+            ArrayList<Long> series = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
                 series.add(buckets.get(i).m_bytesSent);
             }
             return series;
         }
 
         private ArrayList<Long> getReceivedSeries(ArrayList<Bucket> buckets) {
-            ArrayList<Long> series = new ArrayList<>();
-            for (int i = 0; i < buckets.size(); i++) {
+            final int size = buckets.size();
+            ArrayList<Long> series = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
                 series.add(buckets.get(i).m_bytesReceived);
             }
             return series;
