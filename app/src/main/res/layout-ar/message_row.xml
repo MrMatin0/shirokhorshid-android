@@ -24,7 +24,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="@dimen/sk_space_xs"
-    android:background="@drawable/sk_log_row"
+    android:background="@drawable/sk_log_row_selectable"
     android:orientation="horizontal"
     android:paddingLeft="@dimen/sk_space_m"
     android:paddingTop="@dimen/sk_space_s"

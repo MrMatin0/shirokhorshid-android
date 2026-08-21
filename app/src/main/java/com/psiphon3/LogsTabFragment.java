@@ -40,6 +40,11 @@ public class LogsTabFragment extends Fragment {
     private int lastItemCount;
 
     @Nullable
+    private View emptyState;
+    @Nullable
+    private View copyHint;
+
+    @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
@@ -64,6 +69,8 @@ public class LogsTabFragment extends Fragment {
                 new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication()))
                 .get(MainActivityViewModel.class);
 
+        emptyState = view.findViewById(R.id.logsEmptyState);
+        copyHint = view.findViewById(R.id.logsCopyHint);
 
         RecyclerView recyclerView = view.findViewById(R.id.recyclerView);
         LinearLayoutManager layoutManager = new LinearLayoutManager(requireContext());
@@ -79,6 +86,12 @@ public class LogsTabFragment extends Fragment {
 
         pagingAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
             @Override
+            public void onChanged() {
+                super.onChanged();
+                updateEmptyState();
+            }
+
+            @Override
             public void onItemRangeInserted(int positionStart, int itemCount) {
                 super.onItemRangeInserted(positionStart, itemCount);
                 int currentItemCount = pagingAdapter.getItemCount();
@@ -86,17 +99,50 @@ public class LogsTabFragment extends Fragment {
                     recyclerView.scrollToPosition(0);
                 }
                 lastItemCount = currentItemCount;
+                updateEmptyState();
+            }
+
+            @Override
+            public void onItemRangeRemoved(int positionStart, int itemCount) {
+                super.onItemRangeRemoved(positionStart, itemCount);
+                lastItemCount = pagingAdapter.getItemCount();
+                updateEmptyState();
             }
         });
+
+        updateEmptyState();
     }
 
+    /**
+     * Swap the list for an explanation when there is nothing to show.
+     *
+     * <p>A fresh install, or the moment right after Clear logs, used to render a
+     * completely blank tab: indistinguishable from a screen that failed to load.
+     */
+    private void updateEmptyState() {
+        if (emptyState == null || pagingAdapter == null) {
+            return;
+        }
+        boolean isEmpty = pagingAdapter.getItemCount() == 0;
+        emptyState.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        if (copyHint != null) {
+            copyHint.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+        }
+    }
 
     @Override
     public void onResume() {
         super.onResume();
         compositeDisposable.add(viewModel.logsPagedListFlowable()
-                .doOnNext(logEntries -> pagingAdapter.submitList(logEntries))
+                .doOnNext(logEntries -> pagingAdapter.submitList(logEntries, this::updateEmptyState))
                 .subscribe());
+    }
+
+    @Override
+    public void onDestroyView() {
+        emptyState = null;
+        copyHint = null;
+        super.onDestroyView();
     }
 
     @Override
