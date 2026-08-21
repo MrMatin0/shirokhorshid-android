@@ -162,6 +162,15 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq libtinfo5 python3-pip
 
+      - name: Install NDK (must match ndkVersion in app/build.gradle)
+        run: |
+          NDK_VERSION="25.2.9519653"
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          SDKMANAGER="$(command -v sdkmanager || echo "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager")"
+          echo "y" | "$SDKMANAGER" "ndk;$NDK_VERSION"
+          echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/$NDK_VERSION" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$SDK_ROOT/ndk/$NDK_VERSION" >> $GITHUB_ENV
+
       - name: Download GeoLite2 database (Direct Mirror)
         run: |
           mkdir -p app/src/main/assets
