@@ -3,13 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:paddingHorizontal="4dp"
-    android:paddingTop="4dp">
+    android:paddingLeft="@dimen/sk_space_m"
+    android:paddingTop="@dimen/sk_space_m"
+    android:paddingRight="@dimen/sk_space_m">
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:divider="#000000"
-        android:drawSelectorOnTop="false" />
+        android:clipToPadding="false"
+        android:paddingBottom="@dimen/sk_space_m"
+        android:scrollbars="none" />
 </LinearLayout>

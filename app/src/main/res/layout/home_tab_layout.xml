@@ -1,162 +1,214 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical" android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
     <ViewFlipper
         android:id="@+id/sponsorViewFlipper"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent" >
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
+        <!--
+          First child must stay the status ScrollView: HomeTabFragment compares
+          the flipper's current view against it to decide whether the embedded
+          web view is showing.
+        -->
         <ScrollView
             android:id="@+id/statusLayout"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:scrollbarAlwaysDrawVerticalTrack="false">
+            android:fillViewport="true"
+            android:scrollbars="none">
 
             <LinearLayout
-                android:layout_width="fill_parent"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:gravity="center"
+                android:gravity="center_horizontal"
                 android:orientation="vertical"
-                android:padding="10dp">
+                android:paddingLeft="@dimen/sk_space_xl"
+                android:paddingTop="@dimen/sk_space_s"
+                android:paddingRight="@dimen/sk_space_xl"
+                android:paddingBottom="@dimen/sk_space_xl">
 
-                <ImageButton
-                    android:id="@+id/statusViewImage"
-                    android:layout_width="wrap_content"
-                    android:layout_height="300dp"
-                    android:layout_gravity="center"
-                    android:background="@android:color/transparent"
-                    android:padding="10dp"
-                    android:scaleType="fitCenter" />
+                <!-- Hero: emblem on a soft radial glow -->
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/sk_hero_height">
+
+                    <View
+                        android:layout_width="@dimen/sk_hero_glow_size"
+                        android:layout_height="@dimen/sk_hero_glow_size"
+                        android:layout_gravity="center"
+                        android:background="@drawable/sk_status_glow" />
+
+                    <ImageButton
+                        android:id="@+id/statusViewImage"
+                        android:layout_width="@dimen/sk_hero_emblem_size"
+                        android:layout_height="@dimen/sk_hero_emblem_size"
+                        android:layout_gravity="center"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/sk_emblem_content_description"
+                        android:padding="@dimen/sk_space_s"
+                        android:scaleType="fitCenter" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/connectionStatusLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@color/sk_status_off"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    tools:text="Not connected" />
+
+                <TextView
+                    android:id="@+id/connectionStatusHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:paddingTop="@dimen/sk_space_xs"
+                    android:textColor="@color/sk_text_secondary"
+                    android:textSize="13sp"
+                    tools:text="Tap the emblem to connect" />
 
                 <TextView
                     android:id="@+id/versionline"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:text="" />
+                    android:paddingTop="@dimen/sk_space_m"
+                    android:text=""
+                    android:textColor="@color/sk_text_tertiary"
+                    android:textSize="11sp" />
 
-                <TextView
-                    android:id="@+id/disclaimerNotice"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:gravity="center"
-                    android:textAlignment="center"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="4dp"
-                    android:paddingLeft="16dp"
-                    android:paddingRight="16dp"
-                    android:textSize="11sp"
-                    android:textColor="#888888"
-                    android:text="@string/unofficial_disclaimer_short" />
-
-                <!-- LAN Proxy Info (visible only when network sharing is active) -->
+                <!--
+                  LAN proxy card. This LinearLayout is the view whose visibility
+                  the fragment toggles, so the card styling lives on it directly
+                  rather than on a wrapper.
+                -->
                 <LinearLayout
                     android:id="@+id/lanProxyInfoSection"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
+                    android:layout_marginTop="@dimen/sk_space_xl"
+                    android:background="@drawable/sk_card"
                     android:gravity="center"
-                    android:paddingTop="12dp"
-                    android:paddingBottom="8dp"
-                    android:paddingLeft="16dp"
-                    android:paddingRight="16dp"
-                    android:visibility="gone">
+                    android:orientation="vertical"
+                    android:padding="@dimen/sk_space_l"
+                    android:visibility="gone"
+                    tools:visibility="visible">
 
                     <TextView
                         android:id="@+id/lanProxySharingLabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="center"
                         android:text="@string/lan_proxy_sharing_active"
-                        android:textStyle="bold"
-                        android:textColor="#4CAF50"
-                        android:textSize="13sp" />
+                        android:textColor="@color/sk_green"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/lanProxyHttpText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:paddingTop="4dp"
-                        android:textSize="12sp"
                         android:fontFamily="monospace"
-                        android:textColor="#DDDDDD" />
+                        android:paddingTop="@dimen/sk_space_s"
+                        android:textColor="@color/sk_text_primary"
+                        android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/lanProxySocksText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:paddingTop="2dp"
-                        android:textSize="12sp"
                         android:fontFamily="monospace"
-                        android:textColor="#DDDDDD" />
+                        android:paddingTop="2dp"
+                        android:textColor="@color/sk_text_primary"
+                        android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/lanProxyUsernameText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:paddingTop="4dp"
-                        android:textSize="12sp"
                         android:fontFamily="monospace"
-                        android:textColor="#DDDDDD"
+                        android:paddingTop="@dimen/sk_space_s"
+                        android:textColor="@color/sk_text_secondary"
+                        android:textSize="12sp"
                         android:visibility="gone" />
 
                     <TextView
                         android:id="@+id/lanProxyPasswordText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:paddingTop="2dp"
-                        android:textSize="12sp"
                         android:fontFamily="monospace"
-                        android:textColor="#DDDDDD"
+                        android:paddingTop="2dp"
+                        android:textColor="@color/sk_text_secondary"
+                        android:textSize="12sp"
                         android:visibility="gone" />
 
                     <TextView
                         android:id="@+id/lanProxyHint"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="center"
                         android:gravity="center"
-                        android:textAlignment="center"
-                        android:paddingTop="4dp"
+                        android:paddingTop="@dimen/sk_space_s"
                         android:text="@string/lan_proxy_configure_hint"
-                        android:textSize="10sp"
-                        android:textColor="#888888" />
+                        android:textColor="@color/sk_text_tertiary"
+                        android:textSize="10sp" />
 
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/lastlogline"
+                <!-- Most recent log line -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center"
+                    android:layout_marginTop="@dimen/sk_space_xl"
+                    android:background="@drawable/sk_card_muted"
+                    android:orientation="vertical"
+                    android:padding="@dimen/sk_space_m">
+
+                    <TextView
+                        android:id="@+id/lastlogline"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:minLines="2"
+                        android:text=""
+                        android:textColor="@color/sk_text_secondary"
+                        android:textSize="12sp"
+                        tools:text="Psiphon is connecting" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/disclaimerNotice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sk_space_l"
                     android:gravity="center"
-                    android:textAlignment="center"
-                    android:text="" />
+                    android:lineSpacingExtra="2dp"
+                    android:text="@string/unofficial_disclaimer_short"
+                    android:textColor="@color/sk_text_tertiary"
+                    android:textSize="11sp" />
+
             </LinearLayout>
         </ScrollView>
 
         <RelativeLayout
             android:id="@+id/sponsorLayout"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" >
+            android:layout_height="match_parent">
 
             <WebView
                 android:id="@+id/sponsorWebView"
-                android:layout_width="fill_parent"
-                android:layout_height="fill_parent" />
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
 
             <ProgressBar
                 android:id="@+id/sponsorWebViewProgressBar"
                 style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="fill_parent"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_alignParentBottom="true"
                 android:progressDrawable="@drawable/home_progressbar" />
