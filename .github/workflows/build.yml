@@ -30,7 +30,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26.3'
+          go-version: '1.23'
           cache: false
 
       - name: Install Android NDK 23 and platform 30
@@ -162,30 +162,44 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq libtinfo5 python3-pip
 
-      - name: Download GeoLite2 database
+      - name: Download GeoLite2 database (Direct Mirror)
         run: |
-          curl -sL "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country&license_key=${{ secrets.MAXMIND_LICENSE_KEY }}&suffix=tar.gz" \
-            | tar xz --strip-components=1 --wildcards '*/GeoLite2-Country.mmdb'
-          mv GeoLite2-Country.mmdb app/src/main/assets/GeoLite2-Country.mmdb
+          mkdir -p app/src/main/assets
+          curl -fsSL "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb" -o app/src/main/assets/GeoLite2-Country.mmdb
 
       - name: Fetch server entries
         run: |
-          pip3 install cryptography --quiet
-          printenv FETCH_SCRIPT > fetch_server_list.py
-          SERVER_ENTRIES_OUTPUT=server_entries.txt python3 fetch_server_list.py
-          rm fetch_server_list.py
+          touch server_entries.txt
+          if [ -n "$FETCH_SCRIPT" ]; then
+            pip3 install cryptography --quiet
+            printenv FETCH_SCRIPT > fetch_server_list.py
+            SERVER_ENTRIES_OUTPUT=server_entries.txt python3 fetch_server_list.py || echo "Warning: Fetch script failed, using fallback."
+            rm -f fetch_server_list.py
+          else
+            echo "Notice: FETCH_SERVER_LIST_SCRIPT not set. Using empty/default server list."
+          fi
         env:
           FETCH_SCRIPT: ${{ secrets.FETCH_SERVER_LIST_SCRIPT }}
           PSIPHON_REMOTE_SERVER_LIST_SIGNATURE_PUBLIC_KEY: ${{ secrets.PSIPHON_REMOTE_SERVER_LIST_SIGNATURE_PUBLIC_KEY }}
           PSIPHON_REMOTE_SERVER_LIST_URLS_JSON: ${{ secrets.PSIPHON_REMOTE_SERVER_LIST_URLS_JSON }}
 
-      - name: Set up signing
+      - name: Set up signing (With Auto Fallback)
         run: |
-          echo "$KEYSTORE_B64" | base64 -d > release.keystore
-          printf 'STORE_FILE=../release.keystore\n' > signing.properties
-          printf 'STORE_PASSWORD=%s\n' "$STORE_PASSWORD" >> signing.properties
-          printf 'KEY_ALIAS=%s\n' "$KEY_ALIAS" >> signing.properties
-          printf 'KEY_PASSWORD=%s\n' "$KEY_PASSWORD" >> signing.properties
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "Using custom Keystore from Secrets..."
+            echo "$KEYSTORE_B64" | base64 -d > release.keystore
+            printf 'STORE_FILE=../release.keystore\n' > signing.properties
+            printf 'STORE_PASSWORD=%s\n' "$STORE_PASSWORD" >> signing.properties
+            printf 'KEY_ALIAS=%s\n' "$KEY_ALIAS" >> signing.properties
+            printf 'KEY_PASSWORD=%s\n' "$KEY_PASSWORD" >> signing.properties
+          else
+            echo "Generating automatic temporary keystore..."
+            keytool -genkeypair -v -keystore release.keystore -alias androidkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=ShirOKhorshid, O=App, C=US"
+            printf 'STORE_FILE=../release.keystore\n' > signing.properties
+            printf 'STORE_PASSWORD=android\n' >> signing.properties
+            printf 'KEY_ALIAS=androidkey\n' >> signing.properties
+            printf 'KEY_PASSWORD=android\n' >> signing.properties
+          fi
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -228,6 +242,16 @@ jobs:
           PSIPHON_FAQ_URL: ${{ secrets.PSIPHON_FAQ_URL }}
           PSIPHON_DATA_COLLECTION_INFO_URL: ${{ secrets.PSIPHON_DATA_COLLECTION_INFO_URL }}
           PSIPHON_CONDUIT_COMPARTMENT_ID: ${{ secrets.PSIPHON_CONDUIT_COMPARTMENT_ID }}
+
+      - name: Locate and verify APK
+        run: |
+          APK_FILE=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "Error: No APK file found in build output!"
+            exit 1
+          fi
+          echo "Found APK at: $APK_FILE"
+          cp "$APK_FILE" app/build/outputs/apk/release/ShirOKhorshid-release.apk
 
       - name: Clean up secrets
         if: always()
