@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Log row that can be long-pressed to copy. Wrapping the flat sk_log_row shape
+  in a ripple is the whole point: a long-press affordance with no visual
+  feedback is an affordance nobody discovers.
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/sk_ripple">
+    <item android:drawable="@drawable/sk_log_row" />
+</ripple>

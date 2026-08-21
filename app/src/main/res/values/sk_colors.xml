@@ -55,4 +55,11 @@
     <color name="sk_glow_center">#47F2B233</color>
     <color name="sk_glow_edge">#00F2B233</color>
 
+    <!--
+      Press state for tappable rows that are not buttons (log rows, the LAN
+      proxy lines). A literal value rather than ?attr/colorControlHighlight so
+      it resolves identically no matter which theme inflates the drawable.
+    -->
+    <color name="sk_ripple">#1FF2B233</color>
+
 </resources>
