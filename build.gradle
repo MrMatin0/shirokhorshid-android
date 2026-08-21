@@ -22,25 +22,31 @@ allprojects {
 }
 
 // define all dependencies versions here
+//
+// NOTE: this project ships minSdkVersion 14. AndroidX libraries released from
+// October 2023 onwards require minSdkVersion 19 (and newer ones 21/23), so the
+// versions below are the newest releases that still support API 14.
+// Raising minSdkVersion to 21 would unlock appcompat 1.7.x, material 1.12.x,
+// room 2.6.x/2.7.x, work 2.10.x and lifecycle 2.8.x.
 ext {
-    rxjavaVersion = '2.2.5'
-    rxandroidVersion = '2.1.1'
-    rxrelayVersion = '2.1.0'
-    autoValueVersion = '1.5.2'
-    multidexVersion = '2.0.1'
-    appcompatVersion = '1.2.0'
-    materialVersion = '1.2.0'
-    constraintLayoutVersion = '2.0.4'
-    recyclerviewVersion ='1.1.0'
-    lifecycleViewModelVersion = '2.2.0'
+    rxjavaVersion = '2.2.21'                // latest 2.x
+    rxandroidVersion = '2.1.1'              // latest 2.x
+    rxrelayVersion = '2.1.1'                // latest 2.x
+    autoValueVersion = '1.10.4'             // compile-time only
+    multidexVersion = '2.0.1'               // latest
+    appcompatVersion = '1.6.1'              // last minSdk 14 release (1.7.x needs 21)
+    materialVersion = '1.11.0'              // last minSdk 14 release (1.12.x needs 19)
+    constraintLayoutVersion = '2.1.4'
+    recyclerviewVersion ='1.3.1'            // 1.3.2+ needs minSdk 19
+    lifecycleViewModelVersion = '2.6.2'     // 2.7.x+ needs minSdk 19/21
     mockitoVersion = '2.7.22'
     testRunnerVersion = '0.5'
-    preferenceVersion = '1.1.1'
-    localBroadCastManagerVersion = '1.0.0'
-    junitVersion = '1.1.3'
-    workManagerVersion = '2.7.1'
-    roomVersion = '2.4.1'
-    pagingVersion = '2.1.2'
-    locationServicesVersion = '21.0.1'
+    preferenceVersion = '1.2.1'
+    localBroadCastManagerVersion = '1.1.0'
+    junitVersion = '1.1.5'                  // androidx.test.ext:junit, 1.2.x needs minSdk 19
+    workManagerVersion = '2.8.1'            // 2.9.x+ needs minSdk 19/21
+    roomVersion = '2.5.2'                   // 2.6.x+ needs minSdk 19
+    pagingVersion = '2.1.2'                 // 3.x is a breaking API rewrite, keep 2.x
+    locationServicesVersion = '21.0.1'      // 21.1.0+ needs minSdk 19
     geoHashVersion = '0.22'
 }
