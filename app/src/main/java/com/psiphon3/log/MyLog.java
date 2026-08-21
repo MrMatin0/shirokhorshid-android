@@ -32,11 +32,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.lang.ref.WeakReference;
 import java.util.Date;
 import java.util.Locale;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -44,7 +44,11 @@ public class MyLog {
     private static final String TAG = MyLog.class.getSimpleName();
     private static volatile Context applicationContext;
     private static final AtomicBoolean isShutdown = new AtomicBoolean(false);
-    private static final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    // Scheduled rather than plain: retry backoff and the circuit-breaker reset used to
+    // Thread.sleep() on this single worker, which blocked every queued log write behind
+    // them for the duration of the delay (up to RESET_INTERVAL_MS).
+    private static final ScheduledExecutorService executorService =
+            Executors.newSingleThreadScheduledExecutor();
     private static final AtomicBoolean isInitialized = new AtomicBoolean(false);
     private static final Object initLock = new Object();
 
@@ -167,15 +171,22 @@ public class MyLog {
         storeDiagnosticLog(msg, nameValuePairs, Log.ERROR, new Date());
     }
 
-    private static void storeStatusLog(@StringRes int resId, Object[] formatArgs, int sensitivity, int priority, Date timestamp) {
-        // Get context and check initialization
-        final Context context;
-        synchronized (initLock) {
-            context = applicationContext;
-            if (!isInitialized.get() || context == null) {
-                throw new IllegalStateException("MyLog not properly initialized before logging");
-            }
+    // Reads the current context without taking initLock. applicationContext is volatile and
+    // isInitialized is atomic, so the monitor bought nothing on the logging path while
+    // serializing every caller against every other caller (and against init/shutdown).
+    private static Context requireContext() {
+        final Context context = applicationContext;
+        if (context == null || !isInitialized.get()) {
+            throw new IllegalStateException(String.format(Locale.US,
+                    "MyLog not properly initialized. Context: %s, Initialized: %b",
+                    context == null ? "null" : "valid",
+                    isInitialized.get()));
         }
+        return context;
+    }
+
+    private static void storeStatusLog(@StringRes int resId, Object[] formatArgs, int sensitivity, int priority, Date timestamp) {
+        final Context context = requireContext();
 
         try {
             JSONObject logJsonObject = new JSONObject();
@@ -219,17 +230,7 @@ public class MyLog {
     }
 
     private static void storeLog(String logjson, boolean isDiagnostic, int priority, long timestamp) {
-        // Capture context and check initialization state
-        final Context context;
-        synchronized (initLock) {
-            context = applicationContext;
-            if (!isInitialized.get() || context == null) {
-                throw new IllegalStateException(String.format(Locale.US,
-                        "MyLog not properly initialized. Context: %s, Initialized: %b",
-                        context == null ? "null" : "valid",
-                        isInitialized.get()));
-            }
-        }
+        final Context context = requireContext();
 
         ContentValues values = new ContentValues();
         values.put("logjson", logjson);
@@ -241,7 +242,8 @@ public class MyLog {
 
         if (BuildConfig.DEBUG) {
             if (isDiagnostic) {
-                Log.println(priority, TAG, logjson.replaceAll("\\\\", ""));
+                // Literal replace, not replaceAll: no regex to compile per log line.
+                Log.println(priority, TAG, logjson.replace("\\", ""));
             } else {
                 Log.println(priority, TAG, getStatusLogMessageForDisplay(logjson, context));
             }
@@ -292,32 +294,29 @@ public class MyLog {
     }
 
     private static void scheduleCircuitReset() {
-        executorService.execute(() -> {
-            try {
-                Thread.sleep(RESET_INTERVAL_MS);
+        try {
+            executorService.schedule(() -> {
                 circuitOpen.set(false);
                 failureCount.set(0);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        });
+            }, RESET_INTERVAL_MS, TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            // Logger is shutting down, nothing to reset
+        }
     }
 
     private static void scheduleRetry(Context context, Uri uri, ContentValues values, int priority, int nextAttempt) {
         long delay = RETRY_DELAYS_MS[nextAttempt - 1];
 
-        executorService.execute(() -> {
-            try {
-                Thread.sleep(delay);
-                insertWithRetry(context, uri, values, priority, nextAttempt);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                // If interrupted, make sure ERROR logs still get to logcat
-                if (priority >= Log.ERROR) {
-                    Log.e(TAG, values.getAsString("logjson"));
-                }
+        try {
+            executorService.schedule(
+                    () -> insertWithRetry(context, uri, values, priority, nextAttempt),
+                    delay, TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            // Logger is shutting down; make sure ERROR logs still get to logcat
+            if (priority >= Log.ERROR) {
+                Log.e(TAG, values.getAsString("logjson"));
             }
-        });
+        }
     }
 
     public static String getStatusLogMessageForDisplay(String logjson, Context context) {
