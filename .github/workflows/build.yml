@@ -3,6 +3,10 @@ name: Build & Release
 on:
   workflow_dispatch:
     inputs:
+      version_name:
+        description: 'Version to release (defaults to VERSION_NAME in version.properties)'
+        type: string
+        default: ''
       clean_build:
         description: 'Clean build (slower but ensures fresh state)'
         type: boolean
@@ -150,6 +154,12 @@ jobs:
     container:
       image: cimg/android:2024.01.1-ndk
 
+    # Published so the release job uses the same version this job baked into
+    # the APK, instead of recomputing it from the clock.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -220,17 +230,33 @@ jobs:
 
       - name: Set version info
         id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version_name }}
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          CALVER=$(date -u +%Y.%m.%d)
+
+          # Precedence: explicit workflow input, then the version of record in
+          # version.properties, then today's date as a last resort. Reading the
+          # committed file means the released version is reviewable in the diff
+          # instead of being whatever day the runner happened to start on.
+          VERSION="$REQUESTED_VERSION"
+          if [ -z "$VERSION" ] && [ -f version.properties ]; then
+            VERSION=$(sed -n 's/^[[:space:]]*VERSION_NAME[[:space:]]*=[[:space:]]*//p' version.properties | tr -d '[:space:]')
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION=$(date -u +%Y.%m.%d)
+            echo "::warning::No VERSION_NAME found, falling back to today's date: $VERSION"
+          fi
+
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
-          echo "calver=$CALVER" >> "$GITHUB_OUTPUT"
-          echo "tag=v${CALVER}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Building $VERSION (tag v${VERSION}-${SHORT_SHA})"
 
       - name: Build APK
         run: |
           export PSIPHON_EMBEDDED_SERVER_LIST_FILE=server_entries.txt
-          export APP_VERSION_NAME=${{ steps.version.outputs.calver }}
+          export APP_VERSION_NAME=${{ steps.version.outputs.version }}
           export APP_VERSION_RUN=${{ github.run_number }}
           if [ "${{ inputs.clean_build }}" = "true" ]; then
             ./gradlew clean assembleRelease
@@ -281,45 +307,75 @@ jobs:
     name: Create GitHub Release
     needs: build-apk
     runs-on: ubuntu-latest
+    env:
+      # Taken from build-apk rather than recomputed. Both jobs used to run
+      # `date -u +%Y.%m.%d` independently, so a run crossing midnight UTC
+      # tagged and named the release a day after the version inside the APK.
+      VERSION: ${{ needs.build-apk.outputs.version }}
+      TAG: ${{ needs.build-apk.outputs.tag }}
 
     steps:
+      # Needed for CHANGELOG.md. Checked out before the artifact download so it
+      # cannot clobber the downloaded APK.
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download APK artifact
         uses: actions/download-artifact@v4
         with:
           name: shirokhorshid-apk
 
-      - name: Set version info
-        id: version
-        run: |
-          CALVER=$(date -u +%Y.%m.%d)
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          echo "calver=$CALVER" >> "$GITHUB_OUTPUT"
-          echo "tag=v${CALVER}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-
       - name: Prepare release assets
         run: |
-          mv ShirOKhorshid-release.apk "ShirOKhorshid-${{ steps.version.outputs.calver }}.apk"
-          APK="ShirOKhorshid-${{ steps.version.outputs.calver }}.apk"
+          set -euo pipefail
+
+          if [ -z "$VERSION" ] || [ -z "$TAG" ]; then
+            echo "Error: version was not propagated from the build-apk job."
+            exit 1
+          fi
+
+          APK="ShirOKhorshid-${VERSION}.apk"
+          mv ShirOKhorshid-release.apk "$APK"
+
           SHA256=$(sha256sum "$APK" | cut -d' ' -f1)
           MD5=$(md5sum "$APK" | cut -d' ' -f1)
           echo "::notice::SHA-256: $SHA256"
           echo "::notice::MD5: $MD5"
-          echo "### Checksums" > checksums.txt
-          echo '```' >> checksums.txt
-          echo "SHA-256: $SHA256" >> checksums.txt
-          echo "MD5:     $MD5" >> checksums.txt
-          echo '```' >> checksums.txt
-          echo "" >> checksums.txt
-          echo "Built from commit ${{ github.sha }}" >> checksums.txt
+
+          # Release notes: the CHANGELOG section for this version, then the
+          # checksums. Checksums alone told nobody what they were installing.
+          : > release_notes.md
+          if [ -f CHANGELOG.md ]; then
+            awk -v ver="$VERSION" '
+              index($0, "## " ver) == 1 { found = 1; next }
+              found && index($0, "## ") == 1 { exit }
+              found { print }
+            ' CHANGELOG.md > section.md || true
+            if [ -s section.md ]; then
+              cat section.md >> release_notes.md
+              printf '\n' >> release_notes.md
+            else
+              echo "::warning::No CHANGELOG.md section found for $VERSION"
+            fi
+          fi
+
+          {
+            echo "### Checksums"
+            echo '```'
+            echo "SHA-256: $SHA256"
+            echo "MD5:     $MD5"
+            echo '```'
+            echo ""
+            echo "Built from commit ${{ github.sha }}"
+          } >> release_notes.md
 
       - name: Create release
         run: |
-          APK="ShirOKhorshid-${{ steps.version.outputs.calver }}.apk"
-          gh release create "${{ steps.version.outputs.tag }}" \
-            "$APK" \
+          gh release create "$TAG" \
+            "ShirOKhorshid-${VERSION}.apk" \
             --repo "${{ github.repository }}" \
-            --title "ShirOKhorshid ${{ steps.version.outputs.calver }}" \
-            --notes-file checksums.txt \
+            --title "ShirOKhorshid ${VERSION}" \
+            --notes-file release_notes.md \
             --latest
         env:
           GH_TOKEN: ${{ github.token }}
